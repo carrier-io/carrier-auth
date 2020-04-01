@@ -1,0 +1,5 @@
+Flask==1.0.2
+hvac==0.10.0
+PyYAML==5.3
+oic==1.2.0
+jsonpath-rw==1.4.0
