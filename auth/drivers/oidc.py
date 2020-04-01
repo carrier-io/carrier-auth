@@ -22,12 +22,13 @@ from requests import get
 from flask import session, redirect, request, Blueprint, g, current_app
 
 from oic.oic import Client
+from oic.oauth2.exception import GrantError
 from oic.oic.message import ProviderConfigurationResponse  # pylint: disable=E0401
 from oic.oic.message import RegistrationResponse           # pylint: disable=E0401
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD     # pylint: disable=E0401
 from oic.oic.message import AuthorizationResponse  # pylint: disable=E0401
 from oic import rndstr  # pylint: disable=E0401
-
+from auth.utils.session import clear_session
 
 bp = Blueprint("oidc", __name__)
 
@@ -41,6 +42,7 @@ def create_oidc_clinet(issuer=None, registration_info=None):
         g.oidc.store_registration_info(
             RegistrationResponse(**registration_info)
         )
+        g.oidc.redirect_uris.append(g.oidc.registration_response["redirect_uris"][0])
     return g.oidc
 
 
@@ -81,19 +83,23 @@ def login():  # pylint: disable=R0201,C0111
 
 @bp.route("/logout")
 def logout():  # pylint: disable=R0201,C0111,C0103
-    to = request.args.get('to', None)
+    to = request.args.get('to', current_app.config["auth"]["login_handler"])
     return_to = current_app.config["auth"]["logout_default_redirect_url"]
     if to is not None and to in current_app.config["auth"]["logout_allowed_redirect_urls"]:
         return_to = to
     client = create_oidc_clinet(current_app.config["oidc"]['issuer'], current_app.config["oidc"]['registration'])
-    end_req = client.construct_EndSessionRequest(
-        state=session["state"],
-        request_args={"redirect_uri": return_to}
-    )
+    try:
+        end_req = client.construct_EndSessionRequest(
+            state=session["state"],
+            request_args={"redirect_uri": return_to}
+        )
+    except GrantError:
+        clear_session(session)
+        return redirect(f"{client.end_session_endpoint}?redirect_uri={return_to}", 302)
     logout_url = end_req.request(client.end_session_endpoint)
     if current_app.config["oidc"]["debug"]:
         current_app.logger.warning("Logout URL: %s", logout_url)
-    session.clear()
+    clear_session(session)
     return redirect(logout_url, 302)
 
 
@@ -103,20 +109,18 @@ def callback(*args, **kvargs):  # pylint: disable=R0201,C0111,W0613
     auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat='json')
     if "state" not in session or auth_resp["state"] != session["state"]:
         return redirect(current_app.config["endpoints"]["access_denied"], 302)
-    client.redirect_uris.append(client.registration_response["redirect_uris"][0])
     access_token_resp = client.do_access_token_request(
         state=auth_resp["state"],
         request_args={"code": auth_resp["code"]},
         authn_method="client_secret_basic"
     )
-    current_app.logger.warning(access_token_resp)
     if current_app.config["oidc"]["debug"]:
         current_app.logger.warning("Callback access_token_resp: %s", access_token_resp)
     redirect_to = _build_redirect_url()
     session_state = session.pop("state")
     session_nonce = session.pop("nonce")
     id_token = dict(access_token_resp["id_token"])
-    session.clear()
+    clear_session(session)
     session["name"] = "auth"
     session["state"] = session_state
     session["nonce"] = session_nonce

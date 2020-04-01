@@ -9,8 +9,10 @@ def auth():  # pylint: disable=R0201,C0111
     # Check if need to login
     target = request.args.get("target")
     scope = request.args.get("scope")
+    current_app.logger.info(session)
     if not session.get("auth", False) and not current_app.config["global"]["disable_auth"]:
         # Redirect to login
+        current_app.logger.info("We are here")
         for header in ["X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port", "X-Forwarded-Uri"]:
             if header in request.headers:
                 session[header] = request.headers[header]
@@ -35,5 +37,6 @@ def login():  # pylint: disable=R0201,C0111
 
 
 @bp.route("/logout")
-def logout(to=None):  # pylint: disable=R0201,C0111,C0103
+def logout():  # pylint: disable=R0201,C0111,C0103
+    to = request.args.get('to')
     return redirect(current_app.config["auth"]["logout_handler"] + (f"?to={to}" if to is not None else ""))

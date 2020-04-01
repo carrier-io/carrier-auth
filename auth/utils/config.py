@@ -26,7 +26,6 @@ import re
 import hvac  # pylint: disable=E0401
 
 
-
 def config_substitution(obj, secrets):
     """ Allows to use raw environmental variables and secrets inside YAML/JSON config """
     if isinstance(obj, dict):
