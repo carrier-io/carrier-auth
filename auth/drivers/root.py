@@ -1,4 +1,5 @@
 import importlib
+from time import time
 from flask import current_app, session, request, redirect, make_response, Blueprint
 
 bp = Blueprint("root", __name__)
@@ -10,6 +11,8 @@ def auth():  # pylint: disable=R0201,C0111
     target = request.args.get("target")
     scope = request.args.get("scope")
     current_app.logger.info(session)
+    if not session.get('auth_attributes') or session['auth_attributes']['exp'] < int(time()):
+        return redirect(current_app.config["auth"]["login_handler"], 302)
     if not session.get("auth", False) and not current_app.config["global"]["disable_auth"]:
         # Redirect to login
         current_app.logger.info("We are here")
@@ -29,6 +32,11 @@ def auth():  # pylint: disable=R0201,C0111
         from traceback import format_exc
         current_app.logger.error(f"Failed to map auth data {format_exc()}")
     return response
+
+
+@bp.route("/token")
+def token():  # pylint: disable=R0201,C0111
+    return redirect(current_app.config["auth"]["token_handler"], 302)
 
 
 @bp.route("/login")

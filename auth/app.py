@@ -49,8 +49,6 @@ def create_app():
     return app
 
 
-
-
 def main():
     create_app().run(host=APP_HOST, port=APP_PORT, debug=True)
 

@@ -42,7 +42,8 @@ def create_oidc_clinet(issuer=None, registration_info=None):
         g.oidc.store_registration_info(
             RegistrationResponse(**registration_info)
         )
-        g.oidc.redirect_uris.append(g.oidc.registration_response["redirect_uris"][0])
+        g.oidc.redirect_uris.append(f"{g.oidc.registration_response['redirect_uris'][0]}/callback")
+        g.oidc.redirect_uris.append(f"{g.oidc.registration_response['redirect_uris'][0]}/token/callback")
     return g.oidc
 
 
@@ -61,24 +62,35 @@ def _build_redirect_url():
     return f"{proto}://{host}{port}{uri}"
 
 
-@bp.route("/login")
-def login():  # pylint: disable=R0201,C0111
-    session["state"] = rndstr()
-    session["nonce"] = rndstr()
+def _auth_request(scope="openid", redirect='/callback', recreate_scope=True):
+    if recreate_scope:
+        session["state"] = rndstr()
+        session["nonce"] = rndstr()
     client = create_oidc_clinet(current_app.config["oidc"]['issuer'],
                                 current_app.config["oidc"]['registration'])
+    current_app.logger.info(f"{client.registration_response['redirect_uris'][0]}{redirect}")
     auth_req = client.construct_AuthorizationRequest(request_args={
         "client_id": client.client_id,
         "response_type": "code",
-        "scope": ["openid"],
+        "scope": [scope],
         "state": session["state"],
         "nonce": session["nonce"],
-        "redirect_uri": client.registration_response["redirect_uris"][0],
+        "redirect_uri": f"{client.registration_response['redirect_uris'][0]}{redirect}",
     })
     login_url = auth_req.request(client.authorization_endpoint)
     if current_app.config["oidc"]["debug"]:
         current_app.logger.warning("OIDC login URL: %s", login_url)
-    return redirect(login_url, 302)
+    return login_url
+
+
+@bp.route("/login")
+def login():  # pylint: disable=R0201,C0111
+    return redirect(_auth_request(), 302)
+
+
+@bp.route("/token")
+def token():
+    pass
 
 
 @bp.route("/logout")
@@ -103,8 +115,13 @@ def logout():  # pylint: disable=R0201,C0111,C0103
     return redirect(logout_url, 302)
 
 
+@bp.route("/token/callback")
+def token_callback():
+    pass
+
+
 @bp.route("/callback")
-def callback(*args, **kvargs):  # pylint: disable=R0201,C0111,W0613
+def callback():  # pylint: disable=R0201,C0111,W0613
     client = create_oidc_clinet(current_app.config["oidc"]['issuer'], current_app.config["oidc"]['registration'])
     auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat='json')
     if "state" not in session or auth_resp["state"] != session["state"]:
