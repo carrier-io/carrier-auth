@@ -52,5 +52,6 @@ def create_app():
 def main():
     create_app().run(host=APP_HOST, port=APP_PORT, debug=True)
 
+
 if __name__ == '__main__':
     main()

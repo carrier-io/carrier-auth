@@ -1,7 +1,3 @@
-#!/usr/bin/python
-# coding=utf-8
-# pylint: disable=I0011
-
 #   Copyright 2020
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,34 +12,37 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-""" OIDC controller """
+import json
+import os
 from json import dumps
-from requests import get
-from flask import session, redirect, request, Blueprint, g, current_app
 
-from oic.oic import Client
+import requests
+from flask import session, redirect, request, Blueprint, g, current_app
+from oic import rndstr
 from oic.oauth2.exception import GrantError
-from oic.oic.message import ProviderConfigurationResponse  # pylint: disable=E0401
-from oic.oic.message import RegistrationResponse           # pylint: disable=E0401
-from oic.utils.authn.client import CLIENT_AUTHN_METHOD     # pylint: disable=E0401
-from oic.oic.message import AuthorizationResponse  # pylint: disable=E0401
-from oic import rndstr  # pylint: disable=E0401
+from oic.oic import Client
+from oic.oic.message import ProviderConfigurationResponse, RegistrationResponse, AuthorizationResponse
+from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+
 from auth.utils.session import clear_session
 
 bp = Blueprint("oidc", __name__)
 
 
-def create_oidc_clinet(issuer=None, registration_info=None):
-    if 'oidc' not in g:
-        g.oidc = Client(client_authn_method=CLIENT_AUTHN_METHOD)
-        config = get(f"{issuer}/.well-known/openid-configuration", headers={"Content-type": "application/json"}).json()
+def create_oidc_client(issuer=None, registration_info=None):
+    if "oidc" not in g:
+        oidc = Client(client_authn_method=CLIENT_AUTHN_METHOD)
+        config = requests.get(
+            f"{issuer}/.well-known/openid-configuration", headers={"Content-type": "application/json"}
+        ).json()
         provider_config = ProviderConfigurationResponse(**config)
-        g.oidc.handle_provider_config(provider_config, issuer)
-        g.oidc.store_registration_info(
+        oidc.handle_provider_config(provider_config, issuer)
+        oidc.store_registration_info(
             RegistrationResponse(**registration_info)
         )
-        g.oidc.redirect_uris.append(f"{g.oidc.registration_response['redirect_uris'][0]}/callback")
-        g.oidc.redirect_uris.append(f"{g.oidc.registration_response['redirect_uris'][0]}/token/callback")
+        oidc.redirect_uris.append(f"{oidc.registration_response['redirect_uris'][0]}/callback")
+        oidc.redirect_uris.append(f"{oidc.registration_response['redirect_uris'][0]}/token/callback")
+        g.oidc = oidc
     return g.oidc
 
 
@@ -62,12 +61,13 @@ def _build_redirect_url():
     return f"{proto}://{host}{port}{uri}"
 
 
-def _auth_request(scope="openid", redirect='/callback', recreate_scope=True):
+def _auth_request(scope="openid", redirect="/callback", recreate_scope=True):
     if recreate_scope:
         session["state"] = rndstr()
         session["nonce"] = rndstr()
-    client = create_oidc_clinet(current_app.config["oidc"]['issuer'],
-                                current_app.config["oidc"]['registration'])
+
+    client = create_oidc_client(current_app.config["oidc"]["issuer"],
+                                current_app.config["oidc"]["registration"])
     current_app.logger.info(f"{client.registration_response['redirect_uris'][0]}{redirect}")
     auth_req = client.construct_AuthorizationRequest(request_args={
         "client_id": client.client_id,
@@ -84,22 +84,39 @@ def _auth_request(scope="openid", redirect='/callback', recreate_scope=True):
 
 
 @bp.route("/login")
-def login():  # pylint: disable=R0201,C0111
+def login():
     return redirect(_auth_request(), 302)
 
 
 @bp.route("/token")
 def token():
-    pass
+    client = create_oidc_client(current_app.config["oidc"]["issuer"],
+                                current_app.config["oidc"]["registration"])
+    data = {
+        "grant_type": "password",
+        "client_id": client.client_id,
+        "client_secret": client.client_secret,
+        "username": "service_user",
+        "password": "service_user"
+    }
+    response = requests.post(client.token_endpoint, data=data)
+    if response.status_code != requests.codes.ok:
+        return json.dumps({
+            "message": "Keycloak error",
+            "status_code": response.status_code,
+            "text": response.text
+        })
+    data = response.json()
+    return data.get("access_token")
 
 
 @bp.route("/logout")
 def logout():  # pylint: disable=R0201,C0111,C0103
-    to = request.args.get('to', current_app.config["auth"]["login_handler"])
+    to = request.args.get("to", current_app.config["auth"]["login_handler"])
     return_to = current_app.config["auth"]["logout_default_redirect_url"]
     if to is not None and to in current_app.config["auth"]["logout_allowed_redirect_urls"]:
         return_to = to
-    client = create_oidc_clinet(current_app.config["oidc"]['issuer'], current_app.config["oidc"]['registration'])
+    client = create_oidc_client(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
     try:
         end_req = client.construct_EndSessionRequest(
             state=session["state"],
@@ -122,8 +139,8 @@ def token_callback():
 
 @bp.route("/callback")
 def callback():  # pylint: disable=R0201,C0111,W0613
-    client = create_oidc_clinet(current_app.config["oidc"]['issuer'], current_app.config["oidc"]['registration'])
-    auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat='json')
+    client = create_oidc_client(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
+    auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat="json")
     if "state" not in session or auth_resp["state"] != session["state"]:
         return redirect(current_app.config["endpoints"]["access_denied"], 302)
     access_token_resp = client.do_access_token_request(
