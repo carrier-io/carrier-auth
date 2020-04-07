@@ -13,7 +13,6 @@
 #   limitations under the License.
 
 import json
-import os
 from json import dumps
 
 import requests
@@ -96,6 +95,7 @@ def token():
         "grant_type": "password",
         "client_id": client.client_id,
         "client_secret": client.client_secret,
+        "scope": "openid info offline_access",
         "username": "service_user",
         "password": "service_user"
     }
@@ -107,11 +107,11 @@ def token():
             "text": response.text
         })
     data = response.json()
-    return data.get("access_token")
+    return data.get("refresh_token")
 
 
 @bp.route("/logout")
-def logout():  # pylint: disable=R0201,C0111,C0103
+def logout():
     to = request.args.get("to", current_app.config["auth"]["login_handler"])
     return_to = current_app.config["auth"]["logout_default_redirect_url"]
     if to is not None and to in current_app.config["auth"]["logout_allowed_redirect_urls"]:
