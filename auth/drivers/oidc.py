@@ -17,9 +17,10 @@
 #   limitations under the License.
 
 """ OIDC controller """
-from json import dumps
+from json import dumps, loads
 from requests import get
 from flask import session, redirect, request, Blueprint, g, current_app
+from requests import post
 
 from oic.oic import Client
 from oic.oauth2.exception import GrantError
@@ -43,14 +44,15 @@ def create_oidc_clinet(issuer=None, registration_info=None):
             RegistrationResponse(**registration_info)
         )
         g.oidc.redirect_uris.append(f"{g.oidc.registration_response['redirect_uris'][0]}/callback")
-        g.oidc.redirect_uris.append(f"{g.oidc.registration_response['redirect_uris'][0]}/token/callback")
     return g.oidc
 
 
 def _build_redirect_url():
-    for header in ["X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port", "X-Forwarded-Uri"]:
+    for header in ["X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port"]:
         if header not in session:
-            return current_app.config["auth"]["login_default_redirect_url"]
+            if "X-Forwarded-Uri" not in session:
+                return current_app.config["auth"]["login_default_redirect_url"]
+            return session.pop("X-Forwarded-Uri")
     proto = session.pop("X-Forwarded-Proto")
     host = session.pop("X-Forwarded-Host")
     port = session.pop("X-Forwarded-Port")
@@ -62,41 +64,60 @@ def _build_redirect_url():
     return f"{proto}://{host}{port}{uri}"
 
 
-def _auth_request(scope="openid", redirect='/callback', recreate_scope=True):
-    if recreate_scope:
-        session["state"] = rndstr()
-        session["nonce"] = rndstr()
+def _validate_basic_auth(login, password, scope="openid"):
+    url = f'{current_app.config["oidc"]["issuer"]}/protocol/openid-connect/token'
+    data = {
+        "username": login,
+        "password": password,
+        "scope": scope,
+        "grant_type": "password",
+        "client_id": current_app.config["oidc"]['registration']["client_id"],
+        "client_secret": current_app.config["oidc"]['registration']["client_secret"],
+    }
+    resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
+    if resp.get("error"):
+        return False
+    return True
+
+
+def _validate_token_auth(refresh_token, scope="openid"):
+    url = f'{current_app.config["oidc"]["issuer"]}/protocol/openid-connect/token'
+    data = {
+        "refresh_token": refresh_token,
+        "scope": scope,
+        "grant_type": "refresh_token",
+        "client_id": current_app.config["oidc"]['registration']["client_id"],
+        "client_secret": current_app.config["oidc"]['registration']["client_secret"],
+    }
+    resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
+    if resp.get("error"):
+        return False
+    return True
+
+
+def _auth_request(scope=["openid"], redirect='/callback', response_type="code"):
+    session["state"] = rndstr()
+    session["nonce"] = rndstr()
     client = create_oidc_clinet(current_app.config["oidc"]['issuer'],
                                 current_app.config["oidc"]['registration'])
     current_app.logger.info(f"{client.registration_response['redirect_uris'][0]}{redirect}")
     auth_req = client.construct_AuthorizationRequest(request_args={
         "client_id": client.client_id,
-        "response_type": "code",
-        "scope": [scope],
+        "response_type": response_type,
+        "scope": scope,
         "state": session["state"],
         "nonce": session["nonce"],
         "redirect_uri": f"{client.registration_response['redirect_uris'][0]}{redirect}",
     })
     login_url = auth_req.request(client.authorization_endpoint)
-    if current_app.config["oidc"]["debug"]:
-        current_app.logger.warning("OIDC login URL: %s", login_url)
     return login_url
 
 
-@bp.route("/login")
-def login():  # pylint: disable=R0201,C0111
-    return redirect(_auth_request(), 302)
-
-
-@bp.route("/token")
-def token():
-    pass
-
-
-@bp.route("/logout")
-def logout():  # pylint: disable=R0201,C0111,C0103
-    to = request.args.get('to', current_app.config["auth"]["login_handler"])
+def _do_logout(to=None):
+    if not to:
+        to = request.args.get('to', current_app.config["auth"]["login_handler"])
     return_to = current_app.config["auth"]["logout_default_redirect_url"]
+    current_app.logger.info(to)
     if to is not None and to in current_app.config["auth"]["logout_allowed_redirect_urls"]:
         return_to = to
     client = create_oidc_clinet(current_app.config["oidc"]['issuer'], current_app.config["oidc"]['registration'])
@@ -107,17 +128,33 @@ def logout():  # pylint: disable=R0201,C0111,C0103
         )
     except GrantError:
         clear_session(session)
-        return redirect(f"{client.end_session_endpoint}?redirect_uri={return_to}", 302)
+        return f"{client.end_session_endpoint}?redirect_uri={return_to}"
     logout_url = end_req.request(client.end_session_endpoint)
     if current_app.config["oidc"]["debug"]:
         current_app.logger.warning("Logout URL: %s", logout_url)
     clear_session(session)
+    return logout_url
+
+
+@bp.route("/login")
+def login():  # pylint: disable=R0201,C0111
+    return redirect(_auth_request(), 302)
+
+
+@bp.route("/token")
+def token():
+    return redirect(_do_logout(to="/forward-auth/oidc/token/redirect"))
+
+
+@bp.route("/token/redirect")
+def new_token():
+    return redirect(_auth_request(scope=["openid", "offline_access"]))
+
+
+@bp.route("/logout")
+def logout():  # pylint: disable=R0201,C0111,C0103
+    logout_url = _do_logout()
     return redirect(logout_url, 302)
-
-
-@bp.route("/token/callback")
-def token_callback():
-    pass
 
 
 @bp.route("/callback")
@@ -131,21 +168,21 @@ def callback():  # pylint: disable=R0201,C0111,W0613
         request_args={"code": auth_resp["code"]},
         authn_method="client_secret_basic"
     )
-    if current_app.config["oidc"]["debug"]:
-        current_app.logger.warning("Callback access_token_resp: %s", access_token_resp)
-    redirect_to = _build_redirect_url()
     session_state = session.pop("state")
     session_nonce = session.pop("nonce")
     id_token = dict(access_token_resp["id_token"])
+    if access_token_resp['refresh_expires_in'] == 0:
+        session["X-Forwarded-Uri"] = f"/token?id={access_token_resp['refresh_token']}"
+    redirect_to = _build_redirect_url()
     clear_session(session)
     session["name"] = "auth"
     session["state"] = session_state
     session["nonce"] = session_nonce
+    session["auth_attributes"] = id_token
     session["auth"] = True
     session["auth_errors"] = []
     session["auth_nameid"] = ""
     session["auth_sessionindex"] = ""
-    session["auth_attributes"] = id_token
     #
     if current_app.config["oidc"]["debug"]:
         current_app.logger.warning("Callback redirect URL: %s", redirect_to)
