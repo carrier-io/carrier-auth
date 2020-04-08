@@ -21,7 +21,7 @@ from auth.constants import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD, RED
 
 
 class RedisClient:
-
+    DEFAULT_VALUE = "1"
     DEFAULT_TTL = 60 * 10
 
     def __init__(self):
@@ -47,7 +47,7 @@ class RedisClient:
         """
         key_hex = hashlib.sha256(auth_header.encode()).hexdigest()
         if value is None:
-            value = auth_header
+            value = self.DEFAULT_VALUE
         if ttl is None:
             ttl = self.DEFAULT_TTL
         return self._rc.set(name=key_hex, value=value, ex=ttl)
