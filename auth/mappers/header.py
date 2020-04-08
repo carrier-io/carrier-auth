@@ -12,11 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-"""
-    Mapper: header
-"""
-
-import jsonpath_rw  # pylint: disable=E0401
+import jsonpath_rw
 
 from flask import current_app, redirect
 from auth.mappers import raw
@@ -31,7 +27,7 @@ def auth(scope, response):
     try:
         for header, path in current_app.config["mappers"]["header"][scope].items():
             response.headers[header] = jsonpath_rw.parse(path).find(auth_info)[0].value
-    except:  # pylint: disable=W0702
+    except:
         current_app.logger.error("Failed to set scope headers")
     return response
 

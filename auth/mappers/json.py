@@ -12,13 +12,10 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-"""
-    Mapper: json
-"""
-
-from flask import current_app, request, session, redirect
 import urllib
-import jsonpath_rw  # pylint: disable=E0401
+
+import jsonpath_rw
+from flask import current_app, request, session, redirect
 
 from auth.mappers import raw
 

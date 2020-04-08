@@ -1,7 +1,3 @@
-#!/usr/bin/python3
-# coding=utf-8
-# pylint: disable=I0011,C0103,C0301,W0702
-
 #   Copyright 2020 getcarrier.io
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,14 +12,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-"""
-    Auth setup script
-"""
-
-import pkgutil
-import importlib
-import subprocess
-
 from setuptools import setup, find_packages
 
 with open("requirements.txt") as f:
@@ -35,7 +23,7 @@ setup(
     license="Apache License 2.0",
     author="Carrier team",
     author_email="artem_rozumenko@epam.com",
-    url='https://getcarrier.io',
+    url="https://getcarrier.io",
     description="Auth middleware",
     long_description="Auth middleware",
     packages=find_packages(),
