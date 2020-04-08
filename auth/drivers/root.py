@@ -19,11 +19,15 @@ from time import time
 from flask import current_app, session, request, redirect, make_response, Blueprint
 
 from auth.drivers.oidc import _validate_basic_auth, _validate_token_auth
+from auth.utils.redis_client import RedisClient
 
 bp = Blueprint("root", __name__)
 
 
 def handle_auth(auth_header: str):
+    redis_client = RedisClient()
+    if redis_client.check_auth_token(auth_header=auth_header):
+        return make_response("OK", 200)
     try:
         auth_key, auth_value = auth_header.strip().split(" ")
     except ValueError:
@@ -32,9 +36,11 @@ def handle_auth(auth_header: str):
         if auth_key.lower() == "basic":
             username, password = b64decode(auth_value.strip()).decode().split(":", 1)
             if _validate_basic_auth(username, password):
+                redis_client.set_auth_token(auth_header=auth_header)
                 return make_response("OK", 200)
         elif auth_key.lower() == "bearer":
             if _validate_token_auth(auth_value):
+                redis_client.set_auth_token(auth_header=auth_header)
                 return make_response("OK", 200)
 
     return make_response("KO", 401)

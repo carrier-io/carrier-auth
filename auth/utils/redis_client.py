@@ -22,7 +22,7 @@ from auth.constants import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD, RED
 
 class RedisClient:
 
-    DEFAULT_TTL = 60 * 30
+    DEFAULT_TTL = 60 * 10
 
     def __init__(self):
         self._rc = redis.Redis(
@@ -33,46 +33,21 @@ class RedisClient:
             username=REDIS_USER
         )
 
-    def check_basic_auth_token(self, login: str, password: str, scope: str) -> bool:
-        key = f"{login}::{password}::{scope}"
-        key_hex = hashlib.sha256(key.encode()).hexdigest()
+    def check_auth_token(self, auth_header: str) -> bool:
+        key_hex = hashlib.sha256(auth_header.encode()).hexdigest()
         return self._rc.exists(key_hex)
 
-    def get_basic_auth_token(self, login: str, password: str, scope: str) -> Optional[str]:
-        key = f"{login}::{password}::{scope}"
-        key_hex = hashlib.sha256(key.encode()).hexdigest()
+    def get_auth_token(self, auth_header: str) -> Optional[str]:
+        key_hex = hashlib.sha256(auth_header.encode()).hexdigest()
         return self._rc.get(name=key_hex)
 
-    def set_basic_auth_token(
-            self, login: str, password: str, scope: str, value: str, ttl: Optional[int] = None
-    ) -> None:
+    def set_auth_token(self, auth_header: str, value: Optional[str] = None, ttl: Optional[int] = None) -> None:
         """
         ``ttl`` sets an expire flag on key for ``ttl`` seconds.
         """
-        key = f"{login}::{password}::{scope}"
-        key_hex = hashlib.sha256(key.encode()).hexdigest()
-        if ttl is None:
-            ttl = self.DEFAULT_TTL
-        return self._rc.set(name=key_hex, value=value, ex=ttl)
-
-    def check_auth_token(self, refresh_token: str, scope: str) -> bool:
-        key = f"{refresh_token}::{scope}"
-        key_hex = hashlib.sha256(key.encode()).hexdigest()
-        return self._rc.exists(key_hex)
-
-    def get_auth_token(self, refresh_token: str, scope: str) -> Optional[str]:
-        key = f"{refresh_token}::{scope}"
-        key_hex = hashlib.sha256(key.encode()).hexdigest()
-        return self._rc.get(name=key_hex)
-
-    def set_auth_token(
-            self, refresh_token: str, scope: str, value: str, ttl: Optional[int] = None
-    ) -> None:
-        """
-        ``ttl`` sets an expire flag on key for ``ttl`` seconds.
-        """
-        key = f"{refresh_token}::{scope}"
-        key_hex = hashlib.sha256(key.encode()).hexdigest()
+        key_hex = hashlib.sha256(auth_header.encode()).hexdigest()
+        if value is None:
+            value = auth_header
         if ttl is None:
             ttl = self.DEFAULT_TTL
         return self._rc.set(name=key_hex, value=value, ex=ttl)

@@ -60,10 +60,6 @@ def _build_redirect_url():
 
 
 def _validate_basic_auth(login, password, scope="openid"):
-    redis_client = RedisClient()
-    if redis_client.check_basic_auth_token(login, password, scope):
-        return True
-
     url = f'{current_app.config["oidc"]["issuer"]}/protocol/openid-connect/token'
     data = {
         "username": login,
@@ -76,18 +72,10 @@ def _validate_basic_auth(login, password, scope="openid"):
     resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
     if resp.get("error"):
         return False
-    else:
-        ttl = resp.get("access_token", "stub")
-        value = resp.get("expires_in", None)
-        redis_client.set_basic_auth_token(login, password, scope, value=value, ttl=ttl)
     return True
 
 
 def _validate_token_auth(refresh_token, scope="openid"):
-    redis_client = RedisClient()
-    if redis_client.check_auth_token(refresh_token, scope):
-        return True
-
     url = f'{current_app.config["oidc"]["issuer"]}/protocol/openid-connect/token'
     data = {
         "refresh_token": refresh_token,
@@ -99,10 +87,6 @@ def _validate_token_auth(refresh_token, scope="openid"):
     resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
     if resp.get("error"):
         return False
-    else:
-        ttl = resp.get("access_token", "stub")
-        value = resp.get("expires_in", None)
-        redis_client.set_auth_token(refresh_token, scope, value=value, ttl=ttl)
     return True
 
 
