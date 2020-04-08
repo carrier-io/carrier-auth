@@ -12,6 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import hashlib
 from typing import Optional
 
 import redis
@@ -34,11 +35,13 @@ class RedisClient:
 
     def check_basic_auth_token(self, login: str, password: str, scope: str) -> bool:
         key = f"{login}::{password}::{scope}"
-        return self._rc.exists(key)
+        key_hex = hashlib.sha256(key.encode()).hexdigest()
+        return self._rc.exists(key_hex)
 
     def get_basic_auth_token(self, login: str, password: str, scope: str) -> Optional[str]:
         key = f"{login}::{password}::{scope}"
-        return self._rc.get(name=key)
+        key_hex = hashlib.sha256(key.encode()).hexdigest()
+        return self._rc.get(name=key_hex)
 
     def set_basic_auth_token(
             self, login: str, password: str, scope: str, value: str, ttl: Optional[int] = None
@@ -47,17 +50,20 @@ class RedisClient:
         ``ttl`` sets an expire flag on key for ``ttl`` seconds.
         """
         key = f"{login}::{password}::{scope}"
+        key_hex = hashlib.sha256(key.encode()).hexdigest()
         if ttl is None:
             ttl = self.DEFAULT_TTL
-        return self._rc.set(name=key, value=value, ex=ttl)
+        return self._rc.set(name=key_hex, value=value, ex=ttl)
 
     def check_auth_token(self, refresh_token: str, scope: str) -> bool:
         key = f"{refresh_token}::{scope}"
-        return self._rc.exists(key)
+        key_hex = hashlib.sha256(key.encode()).hexdigest()
+        return self._rc.exists(key_hex)
 
     def get_auth_token(self, refresh_token: str, scope: str) -> Optional[str]:
         key = f"{refresh_token}::{scope}"
-        return self._rc.get(name=key)
+        key_hex = hashlib.sha256(key.encode()).hexdigest()
+        return self._rc.get(name=key_hex)
 
     def set_auth_token(
             self, refresh_token: str, scope: str, value: str, ttl: Optional[int] = None
@@ -66,6 +72,7 @@ class RedisClient:
         ``ttl`` sets an expire flag on key for ``ttl`` seconds.
         """
         key = f"{refresh_token}::{scope}"
+        key_hex = hashlib.sha256(key.encode()).hexdigest()
         if ttl is None:
             ttl = self.DEFAULT_TTL
-        return self._rc.set(name=key, value=value, ex=ttl)
+        return self._rc.set(name=key_hex, value=value, ex=ttl)
