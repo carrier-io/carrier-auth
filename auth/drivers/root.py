@@ -1,29 +1,47 @@
+#   Copyright 2020
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
 import importlib
-from time import time
 from base64 import b64decode
+from time import time
+
 from flask import current_app, session, request, redirect, make_response, Blueprint
+
 from auth.drivers.oidc import _validate_basic_auth, _validate_token_auth
 
 bp = Blueprint("root", __name__)
 
 
-def handle_auth(auth_header):
-    if "Basic " in auth_header:
-        auth = auth_header.strip().split(' ')
-        username, password = b64decode(auth[1].strip()).decode().split(':', 1)
-        if not _validate_basic_auth(username, password):
-            return make_response("KO", 401)
-    elif any(b in auth_header for b in ["bearer ", "Bearer "]):
-        auth = auth_header.strip().split(' ')
-        if not _validate_token_auth(auth[1]):
-            return make_response("KO", 401)
-    else:
+def handle_auth(auth_header: str):
+    try:
+        auth_key, auth_value = auth_header.strip().split(" ")
+    except ValueError:
         return make_response("KO", 401)
-    return make_response("OK")
+    else:
+        if auth_key.lower() == "basic":
+            username, password = b64decode(auth_value.strip()).decode().split(":", 1)
+            if _validate_basic_auth(username, password):
+                return make_response("OK", 200)
+        elif auth_key.lower() == "bearer":
+            if _validate_token_auth(auth_value):
+                return make_response("OK", 200)
+
+    return make_response("KO", 401)
 
 
 @bp.route("/auth")
-def auth():  # pylint: disable=R0201,C0111
+def auth():
     # Check if need to login
     target = request.args.get("target")
     scope = request.args.get("scope")
@@ -45,23 +63,23 @@ def auth():  # pylint: disable=R0201,C0111
     try:
         mapper = importlib.import_module(f"auth.mappers.{target}")
         response = mapper.auth(scope, response)
-    except:  # pylint: disable=W0702
+    except (ImportError, AttributeError, TypeError):
         from traceback import format_exc
         current_app.logger.error(f"Failed to map auth data {format_exc()}")
     return response
 
 
 @bp.route("/token")
-def token():  # pylint: disable=R0201,C0111
+def token():
     return redirect(current_app.config["auth"]["token_handler"], 302)
 
 
 @bp.route("/login")
-def login():  # pylint: disable=R0201,C0111
+def login():
     return redirect(current_app.config["auth"]["login_handler"], 302)
 
 
 @bp.route("/logout")
-def logout():  # pylint: disable=R0201,C0111,C0103
+def logout():
     to = request.args.get('to')
     return redirect(current_app.config["auth"]["logout_handler"] + (f"?to={to}" if to is not None else ""))

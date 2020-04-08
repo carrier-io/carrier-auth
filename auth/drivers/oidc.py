@@ -1,7 +1,3 @@
-#!/usr/bin/python
-# coding=utf-8
-# pylint: disable=I0011
-
 #   Copyright 2020
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,19 +12,17 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-""" OIDC controller """
 from json import dumps, loads
-from requests import get
+
 from flask import session, redirect, request, Blueprint, g, current_app
+from oic import rndstr
+from oic.oauth2.exception import GrantError
+from oic.oic import Client
+from oic.oic.message import ProviderConfigurationResponse, RegistrationResponse, AuthorizationResponse
+from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from requests import get
 from requests import post
 
-from oic.oic import Client
-from oic.oauth2.exception import GrantError
-from oic.oic.message import ProviderConfigurationResponse  # pylint: disable=E0401
-from oic.oic.message import RegistrationResponse           # pylint: disable=E0401
-from oic.utils.authn.client import CLIENT_AUTHN_METHOD     # pylint: disable=E0401
-from oic.oic.message import AuthorizationResponse  # pylint: disable=E0401
-from oic import rndstr  # pylint: disable=E0401
 from auth.utils.session import clear_session
 
 bp = Blueprint("oidc", __name__)
@@ -95,7 +89,7 @@ def _validate_token_auth(refresh_token, scope="openid"):
     return True
 
 
-def _auth_request(scope=["openid"], redirect='/callback', response_type="code"):
+def _auth_request(scope="openid", redirect="/callback", response_type="code"):
     session["state"] = rndstr()
     session["nonce"] = rndstr()
     client = create_oidc_clinet(current_app.config["oidc"]['issuer'],
@@ -137,7 +131,7 @@ def _do_logout(to=None):
 
 
 @bp.route("/login")
-def login():  # pylint: disable=R0201,C0111
+def login():
     return redirect(_auth_request(), 302)
 
 
@@ -148,17 +142,17 @@ def token():
 
 @bp.route("/token/redirect")
 def new_token():
-    return redirect(_auth_request(scope=["openid", "offline_access"]))
+    return redirect(_auth_request(scope="openid offline_access"))
 
 
 @bp.route("/logout")
-def logout():  # pylint: disable=R0201,C0111,C0103
+def logout():
     logout_url = _do_logout()
     return redirect(logout_url, 302)
 
 
 @bp.route("/callback")
-def callback():  # pylint: disable=R0201,C0111,W0613
+def callback():
     client = create_oidc_clinet(current_app.config["oidc"]['issuer'], current_app.config["oidc"]['registration'])
     auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat='json')
     if "state" not in session or auth_resp["state"] != session["state"]:

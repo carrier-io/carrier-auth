@@ -1,7 +1,3 @@
-#!/usr/bin/python
-# coding=utf-8
-# pylint: disable=I0011
-
 #   Copyright 2020
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
