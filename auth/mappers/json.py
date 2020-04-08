@@ -34,8 +34,7 @@ def info(scope):
     if scope not in current_app.config["mappers"]["json"]:
         raise redirect(current_app.config["endpoints"]["access_denied"])
     auth_info = raw.info()
-    result = dict()
-    result["raw"] = auth_info
+    result = {"raw": auth_info}
     try:
         for key, path in current_app.config["mappers"]["json"][scope].items():
             result[key] = jsonpath_rw.parse(path).find(auth_info)[0].value

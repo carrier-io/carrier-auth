@@ -46,7 +46,7 @@ def auth():
     target = request.args.get("target")
     scope = request.args.get("scope")
     if "Authorization" in request.headers:
-        return handle_auth(request.headers.get("Authorization"))
+        return handle_auth(auth_header=request.headers.get("Authorization", ""))
     if not session.get('auth_attributes') or session['auth_attributes']['exp'] < int(time()):
         return redirect(current_app.config["auth"]["login_handler"], 302)
     if not session.get("auth", False) and not current_app.config["global"]["disable_auth"]:
