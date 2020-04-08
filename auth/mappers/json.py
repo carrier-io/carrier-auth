@@ -1,7 +1,3 @@
-#!/usr/bin/python
-# coding=utf-8
-# pylint: disable=I0011
-
 #   Copyright 2020
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,13 +12,10 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-"""
-    Mapper: json
-"""
-
-from flask import current_app, request, session, redirect
 import urllib
-import jsonpath_rw  # pylint: disable=E0401
+
+import jsonpath_rw
+from flask import current_app, request, session, redirect
 
 from auth.mappers import raw
 
@@ -41,8 +34,7 @@ def info(scope):
     if scope not in current_app.config["mappers"]["json"]:
         raise redirect(current_app.config["endpoints"]["access_denied"])
     auth_info = raw.info()
-    result = dict()
-    result["raw"] = auth_info
+    result = {"raw": auth_info}
     try:
         for key, path in current_app.config["mappers"]["json"][scope].items():
             result[key] = jsonpath_rw.parse(path).find(auth_info)[0].value

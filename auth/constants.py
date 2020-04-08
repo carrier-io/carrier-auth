@@ -1,4 +1,4 @@
-#   Copyright 2020 getcarrier.io
+#   Copyright 2020
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -12,13 +12,16 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from os import environ
 
-def clear_session(session):
-    session["name"] = "auth"
-    session["state"] = ""
-    session["nonce"] = ""
-    session["auth"] = False
-    session["auth_errors"] = []
-    session["auth_nameid"] = ""
-    session["auth_sessionindex"] = ""
-    session["auth_attributes"] = ""
+APP_HOST = "0.0.0.0"
+APP_PORT = "80"
+CONFIG_FILENAME = environ.get("CONFIG_FILENAME", None)
+AUTH_PROXIES = ("oidc", "root")
+
+REDIS_USER = environ.get("REDIS_USER", "")
+REDIS_PASSWORD = environ.get("REDIS_PASSWORD", "password")
+REDIS_HOST = environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(environ.get("REDIS_PORT", 6379))
+REDIS_DB = int(environ.get("REDIS_DB", 3))
+
