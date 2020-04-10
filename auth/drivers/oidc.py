@@ -27,7 +27,7 @@ from auth.utils.session import clear_session
 bp = Blueprint("oidc", __name__)
 
 
-def create_oidc_clinet(issuer=None, registration_info=None):
+def create_oidc_client(issuer=None, registration_info=None):
     if "oidc" not in g:
         g.oidc = Client(client_authn_method=CLIENT_AUTHN_METHOD)
         config = get(f"{issuer}/.well-known/openid-configuration", headers={"Content-type": "application/json"}).json()
@@ -91,7 +91,7 @@ def _validate_token_auth(refresh_token, scope="openid"):
 def _auth_request(scope="openid", redirect="/callback", response_type="code"):
     session["state"] = rndstr()
     session["nonce"] = rndstr()
-    client = create_oidc_clinet(current_app.config["oidc"]["issuer"],
+    client = create_oidc_client(current_app.config["oidc"]["issuer"],
                                 current_app.config["oidc"]["registration"])
     current_app.logger.info(f"{client.registration_response['redirect_uris'][0]}{redirect}")
     auth_req = client.construct_AuthorizationRequest(request_args={
@@ -113,7 +113,7 @@ def _do_logout(to=None):
     current_app.logger.info(to)
     if to is not None and to in current_app.config["auth"]["logout_allowed_redirect_urls"]:
         return_to = to
-    client = create_oidc_clinet(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
+    client = create_oidc_client(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
     try:
         end_req = client.construct_EndSessionRequest(
             state=session["state"],
@@ -152,7 +152,7 @@ def logout():
 
 @bp.route("/callback")
 def callback():
-    client = create_oidc_clinet(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
+    client = create_oidc_client(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
     auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat="json")
     if "state" not in session or auth_resp["state"] != session["state"]:
         return redirect(current_app.config["endpoints"]["access_denied"], 302)
