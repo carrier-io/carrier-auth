@@ -20,17 +20,15 @@ from oic.oauth2.exception import GrantError
 from oic.oic import Client
 from oic.oic.message import ProviderConfigurationResponse, RegistrationResponse, AuthorizationResponse
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
-from requests import get
-from requests import post
+from requests import get, post
 
-from auth.utils.redis_client import RedisClient
 from auth.utils.session import clear_session
 
 bp = Blueprint("oidc", __name__)
 
 
 def create_oidc_clinet(issuer=None, registration_info=None):
-    if 'oidc' not in g:
+    if "oidc" not in g:
         g.oidc = Client(client_authn_method=CLIENT_AUTHN_METHOD)
         config = get(f"{issuer}/.well-known/openid-configuration", headers={"Content-type": "application/json"}).json()
         provider_config = ProviderConfigurationResponse(**config)
@@ -43,7 +41,7 @@ def create_oidc_clinet(issuer=None, registration_info=None):
 
 
 def _build_redirect_url():
-    for header in ["X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port"]:
+    for header in ("X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port"):
         if header not in session:
             if "X-Forwarded-Uri" not in session:
                 return current_app.config["auth"]["login_default_redirect_url"]
@@ -81,8 +79,8 @@ def _validate_token_auth(refresh_token, scope="openid"):
         "refresh_token": refresh_token,
         "scope": scope,
         "grant_type": "refresh_token",
-        "client_id": current_app.config["oidc"]['registration']["client_id"],
-        "client_secret": current_app.config["oidc"]['registration']["client_secret"],
+        "client_id": current_app.config["oidc"]["registration"]["client_id"],
+        "client_secret": current_app.config["oidc"]["registration"]["client_secret"],
     }
     resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
     if resp.get("error"):
@@ -93,8 +91,8 @@ def _validate_token_auth(refresh_token, scope="openid"):
 def _auth_request(scope="openid", redirect="/callback", response_type="code"):
     session["state"] = rndstr()
     session["nonce"] = rndstr()
-    client = create_oidc_clinet(current_app.config["oidc"]['issuer'],
-                                current_app.config["oidc"]['registration'])
+    client = create_oidc_clinet(current_app.config["oidc"]["issuer"],
+                                current_app.config["oidc"]["registration"])
     current_app.logger.info(f"{client.registration_response['redirect_uris'][0]}{redirect}")
     auth_req = client.construct_AuthorizationRequest(request_args={
         "client_id": client.client_id,
@@ -115,7 +113,7 @@ def _do_logout(to=None):
     current_app.logger.info(to)
     if to is not None and to in current_app.config["auth"]["logout_allowed_redirect_urls"]:
         return_to = to
-    client = create_oidc_clinet(current_app.config["oidc"]['issuer'], current_app.config["oidc"]['registration'])
+    client = create_oidc_clinet(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
     try:
         end_req = client.construct_EndSessionRequest(
             state=session["state"],
@@ -154,8 +152,8 @@ def logout():
 
 @bp.route("/callback")
 def callback():
-    client = create_oidc_clinet(current_app.config["oidc"]['issuer'], current_app.config["oidc"]['registration'])
-    auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat='json')
+    client = create_oidc_clinet(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
+    auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat="json")
     if "state" not in session or auth_resp["state"] != session["state"]:
         return redirect(current_app.config["endpoints"]["access_denied"], 302)
     access_token_resp = client.do_access_token_request(
@@ -166,7 +164,7 @@ def callback():
     session_state = session.pop("state")
     session_nonce = session.pop("nonce")
     id_token = dict(access_token_resp["id_token"])
-    if access_token_resp['refresh_expires_in'] == 0:
+    if access_token_resp["refresh_expires_in"] == 0:
         session["X-Forwarded-Uri"] = f"/token?id={access_token_resp['refresh_token']}"
     redirect_to = _build_redirect_url()
     clear_session(session)

@@ -51,15 +51,15 @@ def auth():
     # Check if need to login
     target = request.args.get("target")
     scope = request.args.get("scope")
+    for header in ("X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port", "X-Forwarded-Uri"):
+        if header in request.headers:
+            session[header] = request.headers[header]
     if "Authorization" in request.headers:
         return handle_auth(auth_header=request.headers.get("Authorization", ""))
-    if not session.get('auth_attributes') or session['auth_attributes']['exp'] < int(time()):
+    if not session.get("auth_attributes") or session["auth_attributes"]["exp"] < int(time()):
         return redirect(current_app.config["auth"]["login_handler"], 302)
     if not session.get("auth", False) and not current_app.config["global"]["disable_auth"]:
         # Redirect to login
-        for header in ["X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port", "X-Forwarded-Uri"]:
-            if header in request.headers:
-                session[header] = request.headers[header]
         return redirect(current_app.config["auth"].get("auth_redirect",
                                                        f"{request.base_url}{request.script_root}/login"))
     if target is None:
@@ -87,5 +87,5 @@ def login():
 
 @bp.route("/logout")
 def logout():
-    to = request.args.get('to')
+    to = request.args.get("to")
     return redirect(current_app.config["auth"]["logout_handler"] + (f"?to={to}" if to is not None else ""))
