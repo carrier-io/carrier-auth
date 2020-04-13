@@ -48,6 +48,8 @@ def handle_auth(auth_header: str):
 
 @bp.route("/auth")
 def auth():
+    if "X-Forwarded-Uri" in request.headers and request.headers["X-Forwarded-Uri"].startswith("/static"):
+        return make_response("OK")
     # Check if need to login
     target = request.args.get("target")
     scope = request.args.get("scope")
