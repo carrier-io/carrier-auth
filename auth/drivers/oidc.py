@@ -64,8 +64,8 @@ def _validate_basic_auth(login, password, scope="openid"):
         "password": password,
         "scope": scope,
         "grant_type": "password",
-        "client_id": current_app.config["oidc"]['registration']["client_id"],
-        "client_secret": current_app.config["oidc"]['registration']["client_secret"],
+        "client_id": current_app.config["oidc"]["registration"]["client_id"],
+        "client_secret": current_app.config["oidc"]["registration"]["client_secret"],
     }
     resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
     if resp.get("error"):
@@ -86,6 +86,19 @@ def _validate_token_auth(refresh_token, scope="openid"):
     if resp.get("error"):
         return False
     return True
+
+
+def _delete_refresh_token(refresh_token: str) -> None:
+    url = f'{current_app.config["oidc"]["issuer"]}/protocol/openid-connect/logout'
+    data = {
+        "refresh_token": refresh_token,
+        "client_id": current_app.config["oidc"]["registration"]["client_id"],
+        "client_secret": current_app.config["oidc"]["registration"]["client_secret"],
+    }
+    post(url,
+         data=data,
+         params={"delete_offline_token": True},
+         headers={"content-type": "application/x-www-form-urlencoded"})
 
 
 def _auth_request(scope="openid", redirect="/callback", response_type="code"):
