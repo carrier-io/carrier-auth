@@ -17,7 +17,7 @@ from typing import Optional
 
 import redis
 
-from auth.constants import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD, REDIS_USER
+from auth.config import Config
 
 
 class RedisClient:
@@ -26,11 +26,11 @@ class RedisClient:
 
     def __init__(self):
         self._rc = redis.Redis(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            db=REDIS_DB,
-            password=REDIS_PASSWORD,
-            username=REDIS_USER
+            host=Config.REDIS_HOST,
+            port=Config.REDIS_PORT,
+            db=Config.REDIS_DB,
+            password=Config.REDIS_PASSWORD,
+            username=Config.REDIS_USER
         )
 
     def check_auth_token(self, auth_header: str) -> bool:

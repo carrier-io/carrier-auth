@@ -16,13 +16,14 @@ import os
 
 import yaml
 from flask import Flask, current_app
+from flask_session import Session
 
-from auth.constants import CONFIG_FILENAME, AUTH_PROXIES, APP_HOST, APP_PORT
+from auth.config import Config
 from auth.utils import config
 
 
 def read_config():  # Reading the config file
-    settings_file = CONFIG_FILENAME
+    settings_file = Config.CONFIG_FILENAME
     if not settings_file:
         current_app.logger.error("Settings file path not set. Please set CONFIG_FILENAME")
     with open(settings_file, "rb") as file:
@@ -34,8 +35,8 @@ def read_config():  # Reading the config file
     current_app.config["endpoints"] = settings["endpoints"]
     current_app.config["auth"] = settings["auth"]
     current_app.config["mappers"] = settings["mappers"]
-    current_app.config["keys"] = list()
-    for key in AUTH_PROXIES:
+    current_app.config["keys"] = []
+    for key in Config.AUTH_PROXIES:
         if key not in settings:
             continue
         current_app.config[key] = settings[key]
@@ -50,9 +51,15 @@ def seed_endpoints():
 
 
 def create_app():
+    app_session = Session()
     app = Flask(__name__)
-    app.config["SESSION_COOKIE_NAME"] = "auth"
-    app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+
+    # Application Configuration
+    app.config.from_object(Config)
+
+    # Initialize Plugins
+    app_session.init_app(app)
+
     with app.app_context():
         read_config()
         seed_endpoints()
@@ -60,7 +67,7 @@ def create_app():
 
 
 def main():
-    create_app().run(host=APP_HOST, port=APP_PORT, debug=True)
+    create_app().run(host=Config.APP_HOST, port=Config.APP_PORT, debug=True)
 
 
 if __name__ == "__main__":
