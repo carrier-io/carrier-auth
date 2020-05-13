@@ -42,14 +42,15 @@ def handle_auth(auth_header: str):
             if _validate_token_auth(auth_value):
                 redis_client.set_auth_token(auth_header=auth_header)
                 return make_response("OK", 200)
-
     return make_response("KO", 401)
 
 
 @bp.route("/auth")
 def auth():
-    if "X-Forwarded-Uri" in request.headers and request.headers["X-Forwarded-Uri"].startswith("/static"):
-        return make_response("OK")
+    if "X-Forwarded-Uri" in request.headers:
+        if request.headers["X-Forwarded-Uri"].startswith("/static") and \
+                any(request.headers["X-Forwarded-Uri"].endswith(res) for res in [".ico", ".js", ".css"]):
+            return make_response("OK")
     # Check if need to login
     target = request.args.get("target")
     scope = request.args.get("scope")
@@ -58,6 +59,11 @@ def auth():
             session[header] = request.headers[header]
     if "Authorization" in request.headers:
         return handle_auth(auth_header=request.headers.get("Authorization", ""))
+    if "X-Forwarded-Uri" in request.headers and "/api/v1" in "X-Forwarded-Uri":
+        if "Referer" in request.headers and "/api/v1" not in "Referer":
+            session["X-Forwarded-Uri"] = request.headers["Referer"]
+        else:
+            session["X-Forwarded-Uri"] = request.base_url
     if not session.get("auth_attributes") or session["auth_attributes"]["exp"] < int(time()):
         return redirect(current_app.config["auth"]["login_handler"], 302)
     if not session.get("auth", False) and not current_app.config["global"]["disable_auth"]:
