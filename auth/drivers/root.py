@@ -13,6 +13,7 @@
 #   limitations under the License.
 
 import importlib
+from json import dumps, loads
 from base64 import b64decode
 from time import time
 
@@ -35,12 +36,16 @@ def handle_auth(auth_header: str):
     else:
         if auth_key.lower() == "basic":
             username, password = b64decode(auth_value.strip()).decode().split(":", 1)
-            if _validate_basic_auth(username, password):
-                redis_client.set_auth_token(auth_header=auth_header)
+            _, auth_data = _validate_basic_auth(username, password)
+            if _:
+                redis_client.set_auth_token(auth_header=auth_header, value=dumps(auth_data))
+                current_app.logger.info(f"Key: {auth_header}")
+                current_app.logger.info(f"Value: {auth_data}")
                 return make_response("OK", 200)
         elif auth_key.lower() == "bearer":
-            if _validate_token_auth(auth_value):
-                redis_client.set_auth_token(auth_header=auth_header)
+            _, auth_data = _validate_token_auth(auth_value)
+            if _:
+                redis_client.set_auth_token(auth_header=auth_header, value=dumps(auth_data))
                 return make_response("OK", 200)
     return make_response("KO", 401)
 
@@ -81,6 +86,31 @@ def auth():
         from traceback import format_exc
         current_app.logger.error(f"Failed to map auth data {format_exc()}")
     return response
+
+
+def me_from_token(auth_header: str):
+    redis_client = RedisClient()
+    current_app.logger.info(f"Key: {auth_header}")
+    res = loads(redis_client.get_auth_token(auth_header=auth_header))
+    if not isinstance(res, dict):
+        current_app.logger.error(f"Non dict session attributes {res}")
+        res = {}
+    return res
+
+
+@bp.route('/me', methods=["GET"])
+def me():
+    res = {}
+    if isinstance(session.get("auth_attributes"), dict):
+        res = {
+            "username": session.get("auth_attributes")['preferred_username'],
+            "groups": session.get("auth_attributes")['groups']
+        }
+    else:
+        current_app.logger.error(f"Non dict session attributes {session.get('auth_attributes')}")
+    if not res and "Authorization" in request.headers:
+        res = me_from_token(auth_header=request.headers.get("Authorization", ""))
+    return make_response(dumps(res), 200)
 
 
 @bp.route("/token")

@@ -12,6 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import base64
 from json import dumps, loads
 
 from flask import session, redirect, request, Blueprint, g, current_app
@@ -57,7 +58,17 @@ def _build_redirect_url():
     return f"{proto}://{host}{port}{uri}"
 
 
-def _validate_basic_auth(login, password, scope="openid"):
+def decode_id_token(id_token):
+    segments = id_token.split('.')
+    if len(segments) != 3:
+        raise Exception('Wrong number of segments in token: %s' % id_token)
+    b64string = segments[1]
+    padded = b64string + '=' * (4 - len(b64string) % 4)
+    padded = base64.b64decode(padded)
+    return loads(padded)
+
+
+def _validate_basic_auth(login, password, scope="openid groups"):
     url = f'{current_app.config["oidc"]["issuer"]}/protocol/openid-connect/token'
     data = {
         "username": login,
@@ -69,11 +80,16 @@ def _validate_basic_auth(login, password, scope="openid"):
     }
     resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
     if resp.get("error"):
-        return False
-    return True
+        return False, {}
+    id_token = decode_id_token(resp.get("id_token"))
+    auth_data = {
+        "username": id_token["preferred_username"],
+        "groups": id_token["groups"]
+    }
+    return True, auth_data
 
 
-def _validate_token_auth(refresh_token, scope="openid"):
+def _validate_token_auth(refresh_token, scope="openid groups"):
     url = f'{current_app.config["oidc"]["issuer"]}/protocol/openid-connect/token'
     data = {
         "refresh_token": refresh_token,
@@ -84,8 +100,13 @@ def _validate_token_auth(refresh_token, scope="openid"):
     }
     resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
     if resp.get("error"):
-        return False
-    return True
+        return False, {}
+    id_token = decode_id_token(resp.get("id_token"))
+    auth_data = {
+        "username": id_token["preferred_username"],
+        "groups": id_token["groups"]
+    }
+    return True, auth_data
 
 
 def _delete_refresh_token(refresh_token: str) -> None:
@@ -106,7 +127,6 @@ def _auth_request(scope="openid", redirect="/callback", response_type="code"):
     session["nonce"] = rndstr()
     client = create_oidc_client(current_app.config["oidc"]["issuer"],
                                 current_app.config["oidc"]["registration"])
-    current_app.logger.info(f"{client.registration_response['redirect_uris'][0]}{redirect}")
     auth_req = client.construct_AuthorizationRequest(request_args={
         "client_id": client.client_id,
         "response_type": response_type,
@@ -123,7 +143,6 @@ def _do_logout(to=None):
     if not to:
         to = request.args.get('to', current_app.config["auth"]["login_handler"])
     return_to = current_app.config["auth"]["logout_default_redirect_url"]
-    current_app.logger.info(to)
     if to is not None and to in current_app.config["auth"]["logout_allowed_redirect_urls"]:
         return_to = to
     client = create_oidc_client(current_app.config["oidc"]["issuer"], current_app.config["oidc"]["registration"])
@@ -144,7 +163,7 @@ def _do_logout(to=None):
 
 @bp.route("/login")
 def login():
-    return redirect(_auth_request(), 302)
+    return redirect(_auth_request(scope="openid groups"), 302)
 
 
 @bp.route("/token")
@@ -154,7 +173,7 @@ def token():
 
 @bp.route("/token/redirect")
 def new_token():
-    return redirect(_auth_request(scope="openid offline_access"))
+    return redirect(_auth_request(scope="openid offline_access groups"))
 
 
 @bp.route("/logout")
@@ -176,6 +195,7 @@ def callback():
     )
     session_state = session.pop("state")
     session_nonce = session.pop("nonce")
+    current_app.logger.info(f"Current_response: {access_token_resp}")
     id_token = dict(access_token_resp["id_token"])
     if access_token_resp["refresh_expires_in"] == 0:
         session["X-Forwarded-Uri"] = f"/token?id={access_token_resp['refresh_token']}"
