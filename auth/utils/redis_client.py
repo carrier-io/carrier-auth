@@ -41,6 +41,10 @@ class RedisClient:
         key_hex = hashlib.sha256(auth_header.encode()).hexdigest()
         return self._rc.get(name=key_hex)
 
+    def clear_auth_token(self, auth_header: str) -> Optional[str]:
+        key_hex = hashlib.sha256(auth_header.encode()).hexdigest()
+        return self._rc.delete(key_hex)
+
     def set_auth_token(self, auth_header: str, value: Optional[str] = None, ttl: Optional[int] = None) -> None:
         """
         ``ttl`` sets an expire flag on key for ``ttl`` seconds.

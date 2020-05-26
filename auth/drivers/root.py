@@ -45,6 +45,8 @@ def handle_auth(auth_header: str):
         elif auth_key.lower() == "bearer":
             _, auth_data = _validate_token_auth(auth_value)
             if _:
+                current_app.logger.info(f"Key: {auth_header}")
+                current_app.logger.info(f"Value: {auth_data}")
                 redis_client.set_auth_token(auth_header=auth_header, value=dumps(auth_data))
                 return make_response("OK", 200)
     return make_response("KO", 401)
@@ -90,11 +92,13 @@ def auth():
 
 def me_from_token(auth_header: str):
     redis_client = RedisClient()
-    current_app.logger.info(f"Key: {auth_header}")
-    res = loads(redis_client.get_auth_token(auth_header=auth_header))
-    if not isinstance(res, dict):
-        current_app.logger.error(f"Non dict session attributes {res}")
-        res = {}
+    try:
+        res = redis_client.get_auth_token(auth_header=auth_header)
+        res = loads(res)
+    except TypeError:
+        redis_client.clear_auth_token(auth_header=auth_header)
+        handle_auth(auth_header=auth_header)
+        res = loads(redis_client.get_auth_token(auth_header=auth_header))
     return res
 
 
@@ -106,8 +110,6 @@ def me():
             "username": session.get("auth_attributes")['preferred_username'],
             "groups": session.get("auth_attributes")['groups']
         }
-    else:
-        current_app.logger.error(f"Non dict session attributes {session.get('auth_attributes')}")
     if not res and "Authorization" in request.headers:
         res = me_from_token(auth_header=request.headers.get("Authorization", ""))
     return make_response(dumps(res), 200)
