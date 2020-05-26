@@ -39,14 +39,10 @@ def handle_auth(auth_header: str):
             _, auth_data = _validate_basic_auth(username, password)
             if _:
                 redis_client.set_auth_token(auth_header=auth_header, value=dumps(auth_data))
-                current_app.logger.info(f"Key: {auth_header}")
-                current_app.logger.info(f"Value: {auth_data}")
                 return make_response("OK", 200)
         elif auth_key.lower() == "bearer":
             _, auth_data = _validate_token_auth(auth_value)
             if _:
-                current_app.logger.info(f"Key: {auth_header}")
-                current_app.logger.info(f"Value: {auth_data}")
                 redis_client.set_auth_token(auth_header=auth_header, value=dumps(auth_data))
                 return make_response("OK", 200)
     return make_response("KO", 401)
