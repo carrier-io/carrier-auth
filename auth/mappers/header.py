@@ -24,6 +24,8 @@ def auth(scope, response):
         raise redirect(current_app.config["endpoints"]["access_denied"])
     response = raw.auth(scope, response)  # Set "raw" headers too
     auth_info = info(scope)
+    if f"/{scope}" not in auth_info["auth_attributes"]["groups"]:
+        raise NameError(f"User is not a memeber of {scope} group")
     try:
         for header, path in current_app.config["mappers"]["header"][scope].items():
             response.headers[header] = jsonpath_rw.parse(path).find(auth_info)[0].value

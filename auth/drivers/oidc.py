@@ -195,7 +195,6 @@ def callback():
     )
     session_state = session.pop("state")
     session_nonce = session.pop("nonce")
-    current_app.logger.info(f"Current_response: {access_token_resp}")
     id_token = dict(access_token_resp["id_token"])
     if access_token_resp["refresh_expires_in"] == 0:
         session["X-Forwarded-Uri"] = f"/token?id={access_token_resp['refresh_token']}"

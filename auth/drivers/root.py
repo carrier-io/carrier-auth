@@ -83,6 +83,8 @@ def auth():
     except (ImportError, AttributeError, TypeError):
         from traceback import format_exc
         current_app.logger.error(f"Failed to map auth data {format_exc()}")
+    except NameError:
+        return redirect(current_app.config["auth"]["login_default_redirect_url"])
     return response
 
 
