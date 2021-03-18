@@ -17,7 +17,7 @@ import urllib
 import jsonpath_rw
 from flask import current_app, request, session, redirect
 
-from auth.mappers import raw
+from plugins.auth_base.mappers import raw
 
 
 def auth(scope, response):

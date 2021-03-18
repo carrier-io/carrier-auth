@@ -17,7 +17,7 @@ from typing import Optional
 
 import redis
 
-from auth.config import Config
+from plugins import Config
 
 
 class RedisClient:

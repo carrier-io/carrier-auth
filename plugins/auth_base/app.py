@@ -19,8 +19,9 @@ from time import time
 
 from flask import current_app, session, request, redirect, make_response, Blueprint
 
-from auth.drivers.oidc import _validate_basic_auth, _validate_token_auth
-from auth.utils.redis_client import RedisClient
+from plugins import _validate_basic_auth, _validate_token_auth
+from plugins import RedisClient
+from plugins.auth_base.config import Config
 
 bp = Blueprint("root", __name__)
 
@@ -68,10 +69,10 @@ def auth():
         else:
             session["X-Forwarded-Uri"] = request.base_url
     if not session.get("auth_attributes") or session["auth_attributes"]["exp"] < int(time()):
-        return redirect(current_app.config["auth"]["login_handler"], 302)
-    if not session.get("auth", False) and not current_app.config["global"]["disable_auth"]:
+        return redirect(Config().settings["auth"]["login_handler"], 302)
+    if not session.get("auth", False) and not Config().settings["global"]["disable_auth"]:
         # Redirect to login
-        return redirect(current_app.config["auth"].get("auth_redirect",
+        return redirect(Config().settings["auth"].get("auth_redirect",
                                                        f"{request.base_url}{request.script_root}/login"))
     if target is None:
         target = "raw"
@@ -84,7 +85,7 @@ def auth():
         from traceback import format_exc
         current_app.logger.error(f"Failed to map auth data {format_exc()}")
     except NameError:
-        return redirect(current_app.config["auth"]["login_default_redirect_url"])
+        return redirect(Config().settings["auth"]["login_default_redirect_url"])
     return response
 
 
@@ -115,15 +116,15 @@ def me():
 
 @bp.route("/token")
 def token():
-    return redirect(current_app.config["auth"]["token_handler"], 302)
+    return redirect(Config().settings["auth"]["token_handler"], 302)
 
 
 @bp.route("/login")
 def login():
-    return redirect(current_app.config["auth"]["login_handler"], 302)
+    return redirect(Config().settings["auth"]["login_handler"], 302)
 
 
 @bp.route("/logout")
 def logout():
     to = request.args.get("to")
-    return redirect(current_app.config["auth"]["logout_handler"] + (f"?to={to}" if to is not None else ""))
+    return redirect(Config().settings["auth"]["logout_handler"] + (f"?to={to}" if to is not None else ""))
