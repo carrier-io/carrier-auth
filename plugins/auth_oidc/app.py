@@ -46,7 +46,7 @@ def _build_redirect_url():
     for header in ("X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port"):
         if header not in session:
             if "X-Forwarded-Uri" not in session:
-                return Config().settings["auth"]["login_default_redirect_url"]
+                return current_app.config['SETTINGS']["auth"]["login_default_redirect_url"]
             return session.pop("X-Forwarded-Uri")
     proto = session.pop("X-Forwarded-Proto")
     host = session.pop("X-Forwarded-Host")
@@ -70,14 +70,14 @@ def decode_id_token(id_token):
 
 
 def _validate_basic_auth(login, password, scope="openid groups"):
-    url = f'{Config().settings["oidc"]["issuer"]}/protocol/openid-connect/token'
+    url = f'{current_app.config["SETTINGS"]["oidc"]["issuer"]}/protocol/openid-connect/token'
     data = {
         "username": login,
         "password": password,
         "scope": scope,
         "grant_type": "password",
-        "client_id": Config().settings["oidc"]["registration"]["client_id"],
-        "client_secret": Config().settings["oidc"]["registration"]["client_secret"],
+        "client_id": current_app.config["SETTINGS"]["oidc"]["registration"]["client_id"],
+        "client_secret": current_app.config["SETTINGS"]["oidc"]["registration"]["client_secret"],
     }
     resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
     if resp.get("error"):
@@ -91,13 +91,13 @@ def _validate_basic_auth(login, password, scope="openid groups"):
 
 
 def _validate_token_auth(refresh_token, scope="openid groups"):
-    url = f'{Config().settings["oidc"]["issuer"]}/protocol/openid-connect/token'
+    url = f'{current_app.config["SETTINGS"]["oidc"]["issuer"]}/protocol/openid-connect/token'
     data = {
         "refresh_token": refresh_token,
         "scope": scope,
         "grant_type": "refresh_token",
-        "client_id": Config().settings["oidc"]["registration"]["client_id"],
-        "client_secret": Config().settings["oidc"]["registration"]["client_secret"],
+        "client_id": current_app.config["SETTINGS"]["oidc"]["registration"]["client_id"],
+        "client_secret": current_app.config["SETTINGS"]["oidc"]["registration"]["client_secret"],
     }
     resp = loads(post(url, data=data, headers={"content-type": "application/x-www-form-urlencoded"}).content)
     if resp.get("error"):
@@ -111,11 +111,11 @@ def _validate_token_auth(refresh_token, scope="openid groups"):
 
 
 def _delete_refresh_token(refresh_token: str) -> None:
-    url = f'{Config().settings["oidc"]["issuer"]}/protocol/openid-connect/logout'
+    url = f'{current_app.config["SETTINGS"]["oidc"]["issuer"]}/protocol/openid-connect/logout'
     data = {
         "refresh_token": refresh_token,
-        "client_id": Config().settings["oidc"]["registration"]["client_id"],
-        "client_secret": Config().settings["oidc"]["registration"]["client_secret"],
+        "client_id": current_app.config["SETTINGS"]["oidc"]["registration"]["client_id"],
+        "client_secret": current_app.config["SETTINGS"]["oidc"]["registration"]["client_secret"],
     }
     post(url,
          data=data,
@@ -126,8 +126,8 @@ def _delete_refresh_token(refresh_token: str) -> None:
 def _auth_request(scope="openid", redirect="/callback", response_type="code"):
     session["state"] = rndstr()
     session["nonce"] = rndstr()
-    client = create_oidc_client(Config().settings["oidc"]["issuer"],
-                                Config().settings["oidc"]["registration"])
+    client = create_oidc_client(current_app.config["SETTINGS"]["oidc"]["issuer"],
+                                current_app.config["SETTINGS"]["oidc"]["registration"])
     auth_req = client.construct_AuthorizationRequest(request_args={
         "client_id": client.client_id,
         "response_type": response_type,
@@ -142,21 +142,21 @@ def _auth_request(scope="openid", redirect="/callback", response_type="code"):
 
 def _do_logout(to=None):
     if not to:
-        to = request.args.get('to', Config().settings["auth"]["login_handler"])
-    return_to = Config().settings["auth"]["logout_default_redirect_url"]
-    if to is not None and to in Config().settings["auth"]["logout_allowed_redirect_urls"]:
+        to = request.args.get('to', current_app.config["SETTINGS"]["auth"]["login_handler"])
+    return_to = current_app.config["SETTINGS"]["auth"]["logout_default_redirect_url"]
+    if to is not None and to in current_app.config["SETTINGS"]["auth"]["logout_allowed_redirect_urls"]:
         return_to = to
-    client = create_oidc_client(Config().settings["oidc"]["issuer"], Config().settings["oidc"]["registration"])
+    client = create_oidc_client(current_app.config["SETTINGS"]["oidc"]["issuer"], current_app.config["SETTINGS"]["oidc"]["registration"])
     try:
         end_req = client.construct_EndSessionRequest(
-            state=session["state"],
+            state=session.get('state'),
             request_args={"redirect_uri": return_to}
         )
     except GrantError:
         clear_session(session)
         return f"{client.end_session_endpoint}?redirect_uri={return_to}"
     logout_url = end_req.request(client.end_session_endpoint)
-    if Config().settings["oidc"]["debug"]:
+    if current_app.config["SETTINGS"]["oidc"]["debug"]:
         current_app.logger.warning("Logout URL: %s", logout_url)
     clear_session(session)
     return logout_url
@@ -185,15 +185,22 @@ def logout():
 
 @bp.route("/callback")
 def callback():
-    client = create_oidc_client(Config().settings["oidc"]["issuer"], Config().settings["oidc"]["registration"])
+    client = create_oidc_client(current_app.config["SETTINGS"]["oidc"]["issuer"], current_app.config["SETTINGS"]["oidc"]["registration"])
     auth_resp = client.parse_response(AuthorizationResponse, info=dumps(request.args.to_dict()), sformat="json")
+    print('*' * 88)
+    print(auth_resp)
+    print(session)
+    print('*' * 88)
     if "state" not in session or auth_resp["state"] != session["state"]:
-        return redirect(Config().settings["endpoints"]["access_denied"], 302)
+        return redirect(current_app.config["SETTINGS"]["endpoints"]["access_denied"], 302)
     access_token_resp = client.do_access_token_request(
         state=auth_resp["state"],
         request_args={"code": auth_resp["code"]},
         authn_method="client_secret_basic"
     )
+    print('*'*88)
+    print(access_token_resp)
+    print('*'*88)
     session_state = session.pop("state")
     session_nonce = session.pop("nonce")
     id_token = dict(access_token_resp["id_token"])
@@ -210,7 +217,7 @@ def callback():
     session["auth_nameid"] = ""
     session["auth_sessionindex"] = ""
     #
-    if Config().settings["oidc"]["debug"]:
+    if current_app.config["SETTINGS"]["oidc"]["debug"]:
         current_app.logger.warning("Callback redirect URL: %s", redirect_to)
     #
     return redirect(redirect_to, 302)

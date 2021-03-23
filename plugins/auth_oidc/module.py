@@ -16,18 +16,16 @@
 #   limitations under the License.
 
 """ Module """
-import os
-
 import flask  # pylint: disable=E0401
 import jinja2  # pylint: disable=E0401
-
-from flask import request, render_template
 
 
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
-from plugins.auth_base.app import bp
-from plugins.auth_base.config import Config, SettingsFileNotFoundError
+from plugins.auth_base.config import SettingsFileNotFoundError
+from plugins.auth_base.utils.auth_handlers import AuthHandler
+from plugins.auth_oidc.app import bp
+from plugins.auth_oidc.utils.auth_handlers import basic, bearer
 
 
 class Module(module.ModuleModel):
@@ -42,10 +40,15 @@ class Module(module.ModuleModel):
         """ Init module """
         log.info('Initializing module auth_oidc')
         try:
-            self.context.app.register_blueprint(bp, url_prefix=Config().settings['endpoints']['oidc'])
+            self.context.app.register_blueprint(bp, url_prefix=self.context.app.config['SETTINGS']['endpoints']['oidc'])
         except SettingsFileNotFoundError as e:
             self.context.app.logger.error(repr(e))
             self.deinit()
+
+        # self.context.node_name
+        # self.context.rpc_manager.register_function(basic, name='authhandler_basic')
+        AuthHandler()['basic'] = basic
+        AuthHandler()['bearer'] = bearer
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """

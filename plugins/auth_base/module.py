@@ -16,12 +16,8 @@
 #   limitations under the License.
 
 """ Module """
-import os
-
 import flask  # pylint: disable=E0401
 import jinja2  # pylint: disable=E0401
-
-from flask import request, render_template
 
 
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
@@ -42,11 +38,14 @@ class Module(module.ModuleModel):
         """ Init module """
         log.info('Initializing module auth_base')
         try:
-            self.context.app.register_blueprint(bp, url_prefix=Config().settings['endpoints']['root'])
+            self.context.app.config.from_object(Config())
         except SettingsFileNotFoundError as e:
             self.context.app.logger.error(repr(e))
             self.deinit()
+        self.context.app.register_blueprint(bp, url_prefix=self.context.app.config['SETTINGS']['endpoints']['root'])
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
         log.info('De-initializing module auth_base')
+
+

@@ -33,7 +33,7 @@ oidc:
   issuer: "${APP_HOST}/auth/realms/carrier"
   registration:
     client_id: carrier-oidc
-    client_secret: ${CLIENT_SECRET}
+    client_secret: "${KEYCLOAK_SECRET}"
     redirect_uris:
     - "${APP_HOST}/forward-auth/oidc"
     - "${APP_HOST}/forward-auth/oidc/callback"
