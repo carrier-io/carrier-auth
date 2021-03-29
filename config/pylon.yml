@@ -14,7 +14,7 @@ development:
 # Session storage
 sessions:
   redis:
-    host: reis
+    host: redis
     password: password
   prefix: pylon_session_auth_
 
@@ -53,5 +53,6 @@ storage:
     config: example
 
 # Settings for Flask application
-# application:
+application:
+  SECRET_KEY: "the_earth_is_flat"
 #   EXPLAIN_TEMPLATE_LOADING: true

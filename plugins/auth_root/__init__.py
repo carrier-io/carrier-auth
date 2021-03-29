@@ -17,4 +17,4 @@
 
 """ Module init """
 
-from plugins.auth_base.module import Module
+from plugins.auth_root.module import Module

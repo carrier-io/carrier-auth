@@ -1,5 +1,5 @@
 global:
-  debug: false
+  debug: true
   disable_auth: false
 endpoints:
   root: "/forward-auth"
@@ -39,3 +39,7 @@ oidc:
     - "${APP_HOST}/forward-auth/oidc/callback"
     post_logout_redirect_uris:
     - "${APP_HOST}"
+config:
+  auth_handler:
+    timeout: 3
+    prefix: "auth_handler_"

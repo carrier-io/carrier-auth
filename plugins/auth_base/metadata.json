@@ -1,8 +1,0 @@
-{
-  "name": "Auth Base Plugin",
-  "version": "0.1",
-  "module": "plugins.auth_base",
-  "extract": false,
-  "depends_on": [],
-  "init_after": []
-}

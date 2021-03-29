@@ -14,23 +14,27 @@
 
 import jsonpath_rw
 
-from flask import current_app, redirect
-from plugins.auth_base.mappers import raw
+from flask import redirect
+from pylon.core.tools import log
+
+from plugins.auth_root.mappers import raw
+from plugins.auth_root.utils.decorators import require_auth_settings
 
 
-def auth(scope, response):
+@require_auth_settings
+def auth(scope, response, auth_settings: dict = None):
     """ Map auth data """
-    if scope not in current_app.config["mappers"]["header"]:
-        raise redirect(current_app.config["endpoints"]["access_denied"])
+    if scope not in auth_settings["mappers"]["header"]:
+        raise redirect(auth_settings["endpoints"]["access_denied"])
     response = raw.auth(scope, response)  # Set "raw" headers too
     auth_info = info(scope)
     if f"/{scope}" not in auth_info["auth_attributes"]["groups"]:
         raise NameError(f"User is not a memeber of {scope} group")
     try:
-        for header, path in current_app.config["mappers"]["header"][scope].items():
+        for header, path in auth_settings["mappers"]["header"][scope].items():
             response.headers[header] = jsonpath_rw.parse(path).find(auth_info)[0].value
     except:
-        current_app.logger.error("Failed to set scope headers")
+        log.error("Failed to set scope headers")
     return response
 
 
