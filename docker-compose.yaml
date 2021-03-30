@@ -197,6 +197,7 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.carrier-auth.rule=PathPrefix(`/forward-auth`)'
+#      - 'traefik.http.routers.carrier-auth.rule=PathPrefix(`/api`)'
       - 'traefik.http.services.carrier-auth.loadbalancer.server.port=8080'
 #      - 'carrier=auth'
     networks:

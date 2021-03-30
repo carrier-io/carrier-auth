@@ -20,8 +20,6 @@ from plugins.auth_root.utils.decorators import require_auth_settings
 @require_auth_settings
 def auth(scope, response, auth_settings: dict = None):
     """ Map auth data """
-    print('AUTH CALLED, ', scope, response, auth_settings)
-    print('AUTH CALLED, ', session)
     response.headers["X-Auth-Session-Endpoint"] = f"{request.base_url}{auth_settings['endpoints']['info']}/query"
     response.headers["X-Auth-Session-Name"] = session["name"]
     return response

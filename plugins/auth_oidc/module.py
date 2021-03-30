@@ -113,6 +113,7 @@ class Module(module.ModuleModel):
             "redirect_uri": f"{client.registration_response['redirect_uris'][0]}{redirect_uri}",
         })
         login_url = auth_req.request(client.authorization_endpoint)
+        print('LOGIN URL', login_url)
         return login_url
 
     def callback(self):
@@ -168,6 +169,7 @@ class Module(module.ModuleModel):
         try:
             uri = session.pop("X-Forwarded-Uri")
         except KeyError:
+            print(f'NO X-Forwarded-Uri in session found, using {self.context.auth_settings["auth"]["login_default_redirect_url"]}')
             uri = self.context.auth_settings["auth"]["login_default_redirect_url"]
         return f"{proto}://{host}{port}{uri}"
 
