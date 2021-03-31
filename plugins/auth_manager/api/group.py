@@ -22,33 +22,37 @@ from pydantic import ValidationError
 from requests import Response
 
 from plugins.auth_manager.api.base import BaseResource, api_response, ApiResponseError, api_data_response
+from plugins.auth_manager.api.user import UserAPI
 from plugins.auth_manager.models.group_pd import GroupRepresentation
 from plugins.auth_manager.utils import Token, ApiError
 
 
 class GroupAPI(BaseResource):
-    @staticmethod
-    def _get_groups(url: str, token: Union[str, Token], realm: str = '',
-                   response_debug_processor: Optional[Callable] = None, **kwargs) -> Response:
-        url = url.format(realm=realm)
-        headers = {'Authorization': str(token)}
-        response = requests.get(url, headers=headers, params=kwargs)
-        return api_response(response, debug_processor=response_debug_processor)
+    # @staticmethod
+    # def _get(url: str, token: Union[str, Token], realm: str = '',
+    #                response_debug_processor: Optional[Callable] = None, **kwargs) -> Response:
+    #     url = url.format(realm=realm)
+    #     headers = {'Authorization': str(token)}
+    #     response = requests.get(url, headers=headers, params=kwargs)
+    #     return api_response(response, debug_processor=response_debug_processor)
 
     @BaseResource.check_token
     def get(self, realm: str, group_id: Optional[str] = None) -> Response:
         url = self.settings['manager']['group_url']
         if group_id:
             url = f'{url}/{group_id}'
-        return self._get_groups(
+        search_kwarg = dict()
+        if request.args.get('search'):
+            search_kwarg['search'] = request.args['search']
+        return UserAPI._get(
             url=url,
             token=self.token,
             realm=realm,
-            **request.args
+            **search_kwarg
         )
 
     # @staticmethod
-    # def _put_groups(url: str, token: Union[str, Token], body: UserRepresentation, realm: str = '',
+    # def _put(url: str, token: Union[str, Token], body: GroupRepresentation, realm: str = '',
     #                response_debug_processor: Optional[Callable] = None) -> Response:
     #     url = url.format(realm=realm)
     #     headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
@@ -59,20 +63,25 @@ class GroupAPI(BaseResource):
     #             'updating_fields': body.dict(exclude_unset=True)
     #         }
     #     return api_response(response, debug_processor=response_debug_processor)
-    #
-    # @BaseResource.check_token
-    # def put(self, realm: str, user_id: str) -> Response:
-    #     url = f"{self.settings['manager']['user_url']}/{user_id}"
-    #     user = UserRepresentation.parse_obj(request.json)
-    #     return self._put_users(
-    #         url=url,
-    #         token=self.token,
-    #         realm=realm,
-    #         body=user
-    #     )
-    #
+
+    @BaseResource.check_token
+    def put(self, realm: str, group_id: str) -> Response:
+        url = f"{self.settings['manager']['group_url']}/{group_id}"
+        try:
+            group = GroupRepresentation.parse_obj(request.json)
+        except ValidationError as e:
+            error = ApiResponseError()
+            error.message = str(e)
+            return api_data_response(error=error)
+        return UserAPI._put(
+            url=url,
+            token=self.token,
+            realm=realm,
+            body=group
+        )
+
     @staticmethod
-    def _post_users(url: str, token: Union[str, Token], body: GroupRepresentation, realm: str = '',
+    def _post(url: str, token: Union[str, Token], body: GroupRepresentation, realm: str = '',
                     response_debug_processor: Optional[Callable] = None) -> Response:
         if not body.name:
             raise ApiError('Body must contain a name')
@@ -96,7 +105,7 @@ class GroupAPI(BaseResource):
             error.message = str(e)
             return api_data_response(error=error)
         try:
-            return self._post_users(
+            return self._post(
                 url=url,
                 token=self.token,
                 realm=realm,
@@ -106,22 +115,65 @@ class GroupAPI(BaseResource):
             error = ApiResponseError()
             error.message = str(e)
             return api_data_response(error=error)
-    #
-    @staticmethod
-    def _delete_groups(url: str, token: Union[str, Token], realm: str = '',
-                      response_debug_processor: Optional[Callable] = None) -> Response:
-        url = url.format(realm=realm)
-        headers = {'Authorization': str(token)}
-        response = requests.delete(url, headers=headers)
-        if not response_debug_processor:
-            response_debug_processor = lambda r: {'status_code': r.status_code}
-        return api_response(response, debug_processor=response_debug_processor)
+
+    # @staticmethod
+    # def _delete(url: str, token: Union[str, Token], realm: str = '',
+    #                   response_debug_processor: Optional[Callable] = None) -> Response:
+    #     url = url.format(realm=realm)
+    #     headers = {'Authorization': str(token)}
+    #     response = requests.delete(url, headers=headers)
+    #     if not response_debug_processor:
+    #         response_debug_processor = lambda r: {'status_code': r.status_code}
+    #     return api_response(response, debug_processor=response_debug_processor)
 
     @BaseResource.check_token
-    def delete(self, realm: str, user_id: str) -> Response:
-        url = f"{self.settings['manager']['user_url']}/{user_id}"
-        return self._delete_users(
+    def delete(self, realm: str, group_id: str) -> Response:
+        url = f"{self.settings['manager']['group_url']}/{group_id}"
+        return UserAPI._delete(
             url=url,
             token=self.token,
             realm=realm,
+        )
+
+
+class SubgroupAPI(BaseResource):
+    @staticmethod
+    def _post_subgroup(url: str, token: Union[str, Token], body: GroupRepresentation, realm: str = '',
+                       response_debug_processor: Optional[Callable] = None) -> Response:
+        url = url.format(realm=realm)
+        headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
+        response = requests.post(url, headers=headers, json=body.dict(exclude_unset=True))
+        if not response_debug_processor:
+            response_debug_processor = lambda r: {
+                'status_code': r.status_code,
+                'updating_fields': body.dict(exclude_unset=True)
+            }
+        return api_response(response, debug_processor=response_debug_processor)
+
+    @BaseResource.check_token
+    def post(self, realm: str, group_id: str) -> Response:
+        url = f"{self.settings['manager']['group_url']}/{group_id}/children"
+        try:
+            group = GroupRepresentation.parse_obj(request.json)
+        except ValidationError as e:
+            error = ApiResponseError()
+            error.message = str(e)
+            return api_data_response(error=error)
+        return self._post_subgroup(
+            url=url,
+            token=self.token,
+            realm=realm,
+            body=group
+        )
+
+
+class GroupMemberAPI(BaseResource):
+    @BaseResource.check_token
+    def get(self, realm: str, group_id: Optional[str] = None) -> Response:
+        url = f"{self.settings['manager']['group_url']}/{group_id}/members"
+        return UserAPI._get(
+            url=url,
+            token=self.token,
+            realm=realm,
+            **request.args
         )

@@ -24,8 +24,8 @@ from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
 
 from plugins.auth_manager.api.base import BaseResource
-from plugins.auth_manager.api.group import GroupAPI
-from plugins.auth_manager.api.user import UserAPI
+from plugins.auth_manager.api.group import GroupAPI, SubgroupAPI, GroupMemberAPI
+from plugins.auth_manager.api.user import UserAPI, UsergroupsAPI
 from plugins.auth_manager.models.user_pd import UserRepresentation
 from plugins.auth_manager.utils import AuthCreds, get_token, add_resource_to_api
 
@@ -47,9 +47,22 @@ class Module(module.ModuleModel):
         BaseResource.set_settings(self.context.auth_settings)
         # print(f'{UserAPI.settings}')
         # print(f'{BaseResource.settings}')
+        add_resource_to_api(self.context.api, UsergroupsAPI,
+                            f'/user/<string:realm>/<string:user_id>/groups',
+                            f'/user/<string:realm>/<string:user_id>/groups/<string:group_id>',
+                            methods=['GET', 'PUT', 'DELETE']
+                            )
         add_resource_to_api(self.context.api, UserAPI,
                             f'/user/<string:realm>',
                             f'/user/<string:realm>/<string:user_id>'
+                            )
+        add_resource_to_api(self.context.api, GroupMemberAPI,
+                            f'/group/<string:realm>/<string:group_id>/members',
+                            methods=['GET']
+                            )
+        add_resource_to_api(self.context.api, SubgroupAPI,
+                            f'/group/<string:realm>/<string:group_id>',
+                            methods=['POST']
                             )
         add_resource_to_api(self.context.api, GroupAPI,
                             f'/group/<string:realm>',
@@ -73,7 +86,8 @@ class Module(module.ModuleModel):
             url_prefix=url_prefix
         )
         # bp.add_url_rule('/token', 'token', self.token, methods=['GET'])
-        # bp.add_url_rule('/clear_token', 'clear_token', self.clear_token, methods=['GET'])
+        bp.add_url_rule('/clear_token', 'clear_token', self.clear_token, methods=['GET'])
+
         # # bp.add_url_rule('/users/<realm>', 'user-list', self.user_list, methods=['GET'])
         # # bp.add_url_rule('/users/<realm>/<id_>', 'user-detail', self.user_detail, methods=['GET'])
         # bp.add_url_rule('/users/<realm>/<id_>', 'user-update', self.user_update, methods=['PUT'])
@@ -151,51 +165,51 @@ class Module(module.ModuleModel):
     #     # return parse_obj_as(List[UserRepresentation], data).json()
     #     return flask.jsonify(data)
 
-    @staticmethod
-    def _get_body(body: [dict, UserRepresentation] = None):
-        if not body:
-            body = request.json
-            if not body:
-                return flask.jsonify({'error': 'body required'})
-        if isinstance(body, dict):
-            body = UserRepresentation.parse_obj(request.json)
-        elif isinstance(body, str):
-            body = UserRepresentation.parse_raw(request.json)
-        else:
-            if not isinstance(body, UserRepresentation):
-                body = UserRepresentation(**body)
-        return body
+    # @staticmethod
+    # def _get_body(body: [dict, UserRepresentation] = None):
+    #     if not body:
+    #         body = request.json
+    #         if not body:
+    #             return flask.jsonify({'error': 'body required'})
+    #     if isinstance(body, dict):
+    #         body = UserRepresentation.parse_obj(request.json)
+    #     elif isinstance(body, str):
+    #         body = UserRepresentation.parse_raw(request.json)
+    #     else:
+    #         if not isinstance(body, UserRepresentation):
+    #             body = UserRepresentation(**body)
+    #     return body
 
-    def user_update(self, realm: str, id_: str, body: [dict, UserRepresentation] = None):
-        body = self._get_body(body)
-        url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
-        response = self.context.rpc_manager.call.auth_manager_put_users(
-            url=url,
-            token=self.token(),
-            realm=realm,
-            body=body
-        )
+    # def user_update(self, realm: str, id_: str, body: [dict, UserRepresentation] = None):
+    #     body = self._get_body(body)
+    #     url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
+    #     response = self.context.rpc_manager.call.auth_manager_put_users(
+    #         url=url,
+    #         token=self.token(),
+    #         realm=realm,
+    #         body=body
+    #     )
+    #
+    #     return make_response('', response.status_code)
+    #
+    # def user_create(self, realm: str, body: [dict, UserRepresentation] = None):
+    #     body = self._get_body(body)
+    #     url = self.context.auth_settings['manager']['user_url']
+    #     response = self.context.rpc_manager.call.auth_manager_post_users(
+    #         url=url,
+    #         token=self.token(),
+    #         realm=realm,
+    #         body=body
+    #     )
+    #
+    #     return make_response('', response.status_code)
+    #
+    # def user_delete(self, realm: str, id_: str):
+    #     url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
+    #     response = self.context.rpc_manager.call.auth_manager_delete_users(
+    #         url=url,
+    #         token=self.token(),
+    #         realm=realm,
+    #     )
 
-        return make_response('', response.status_code)
-
-    def user_create(self, realm: str, body: [dict, UserRepresentation] = None):
-        body = self._get_body(body)
-        url = self.context.auth_settings['manager']['user_url']
-        response = self.context.rpc_manager.call.auth_manager_post_users(
-            url=url,
-            token=self.token(),
-            realm=realm,
-            body=body
-        )
-
-        return make_response('', response.status_code)
-
-    def user_delete(self, realm: str, id_: str):
-        url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
-        response = self.context.rpc_manager.call.auth_manager_delete_users(
-            url=url,
-            token=self.token(),
-            realm=realm,
-        )
-
-        return make_response('', response.status_code)
+        # return make_response('', response.status_code)

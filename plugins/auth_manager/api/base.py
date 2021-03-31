@@ -42,7 +42,7 @@ class ApiResponse(BaseModel):
 
 
 def api_response(response: Response, debug_processor: Optional[Callable] = None):
-    print(f'{response=}')
+    # print(f'{response=}')
     debug_data = None
     if debug_processor:
         try:
@@ -72,8 +72,10 @@ def api_data_response(data: Any = {}, error: Optional[ApiResponseError] = ApiRes
         resp.error = error
     if debug:
         resp.debug = debug
-
-    return make_response(resp.dict(exclude_none=True), resp.status)
+    try:
+        return make_response(resp.dict(exclude_none=True), resp.status)
+    except RuntimeError:  # in case of script test
+        return resp
 
 
 class BaseResource(Resource):
@@ -118,20 +120,14 @@ class BaseResource(Resource):
 
     @staticmethod
     def check_token(func):
-        print(f'check token {func=}')
-
         @wraps(func)
         def wrapper(*args, **kwargs):
-            print(f'check token wrapper {func=} {args=} {kwargs=}')
             try:
                 result = func(*args, **kwargs)
-                print(f'{result=} {type(result)=}')
                 try:
                     data = result.json()
                 except TypeError:
                     data = result.json
-                print(f'{data=} {type(data)=}')
-                print(f"{data['success']=} {type(data['success'])=}")
                 if not data['success']:
                     if data['error'].get('error_code') == 401:
                         raise TokenExpiredError
@@ -139,9 +135,7 @@ class BaseResource(Resource):
             except TokenExpiredError:
                 log.warning('Token expired, trying to refresh')
                 # refresh_creds = RefreshCreds(refresh_token=session['api_refresh_token'])
-                print(f'{session["api_token"]=}')
                 refresh_creds = RefreshCreds(refresh_token=session['api_token'].refresh_token)
-                # print(f'{args=} {kwargs=}')
                 try:
                     new_token = refresh_token(url=BaseResource._settings['manager']['token_url'], creds=refresh_creds)
                 except TokenRefreshError as e:
