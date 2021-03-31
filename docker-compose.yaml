@@ -153,7 +153,7 @@ services:
       - ./config/disablessl.sh:/tmp/disablessl.sh
       - ./config/keycloak/themes/src/main/resources/theme:/opt/jboss/keycloak/themes
     environment:
-      - DB_ADDR=carrierauth_postgres_1
+      - DB_ADDR=postgres
       - DB_VENDOR=$DATABASE_VENDOR
       - KEYCLOAK_USER=$KEYCLOAK_USER
       - KEYCLOAK_PASSWORD=$KEYCLOAK_PASSWORD

@@ -67,4 +67,3 @@ class UserRepresentation(BaseModel):
 class User(BaseModel):
     realm: str
     rep: UserRepresentation
-

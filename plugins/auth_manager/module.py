@@ -16,21 +16,18 @@
 #   limitations under the License.
 
 """ Module """
-import json
-from typing import List, Optional
 
 import flask  # pylint: disable=E0401
-import jinja2  # pylint: disable=E0401
 from flask import session, make_response, request
-from pydantic.tools import parse_obj_as
 
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
 
+from plugins.auth_manager.api.base import BaseResource
+from plugins.auth_manager.api.group import GroupAPI
 from plugins.auth_manager.api.user import UserAPI
-from plugins.auth_manager.models_pd import UserRepresentation
-from plugins.auth_manager.utils import AuthCreds, get_token, ApiError, put_users, post_users, delete_users, \
-    add_resource_to_api
+from plugins.auth_manager.models.user_pd import UserRepresentation
+from plugins.auth_manager.utils import AuthCreds, get_token, add_resource_to_api
 
 
 class Module(module.ModuleModel):
@@ -46,24 +43,29 @@ class Module(module.ModuleModel):
         log.info('Initializing module auth_manager')
         url_prefix = f'{self.context.url_prefix}/{self.context.auth_settings["endpoints"]["manager"]}/'
 
-        print(self.context.api)
-        user_api = UserAPI(self.context.auth_settings)
-        add_resource_to_api(self.context.api, user_api,
+        # print(self.context.api)
+        BaseResource.set_settings(self.context.auth_settings)
+        # print(f'{UserAPI.settings}')
+        # print(f'{BaseResource.settings}')
+        add_resource_to_api(self.context.api, UserAPI,
                             f'/user/<string:realm>',
                             f'/user/<string:realm>/<string:user_id>'
                             )
+        add_resource_to_api(self.context.api, GroupAPI,
+                            f'/group/<string:realm>',
+                            f'/group/<string:realm>/<string:group_id>'
+                            )
         # self.context.api.add_resource(user_api, f'{url_prefix}user/<string:realm>')
-        from flask import url_for
         # self.context.api.add_resource(user_api, '/user/<string:realm>/<string:user_id>')
-        print(self.context.api.endpoints)
-        print(self.context.api)
+        # print(self.context.api.endpoints)
+        # print(self.context.api)
         # https://flask-restful.readthedocs.io/en/latest/quickstart.html#a-minimal-api
 
         self.context.rpc_manager.register_function(get_token, name='auth_manager_get_token')
         # self.context.rpc_manager.register_function(get_users, name='auth_manager_get_users')
-        self.context.rpc_manager.register_function(put_users, name='auth_manager_put_users')
-        self.context.rpc_manager.register_function(post_users, name='auth_manager_post_users')
-        self.context.rpc_manager.register_function(delete_users, name='auth_manager_delete_users')
+        # self.context.rpc_manager.register_function(put_users, name='auth_manager_put_users')
+        # self.context.rpc_manager.register_function(post_users, name='auth_manager_post_users')
+        # self.context.rpc_manager.register_function(delete_users, name='auth_manager_delete_users')
 
         bp = flask.Blueprint(
             'auth_manager', 'plugins.auth_manager',
@@ -99,14 +101,17 @@ class Module(module.ModuleModel):
                 creds
             )
             session['api_token'] = token
+            # session['api_token'] = str(token)
+            # session['api_refresh_token'] = token.refresh_token
         return token
 
     def clear_token(self):
         from flask import redirect
-        try:
-            del session['api_token']
-        except KeyError:
-            ...
+        for k in ('api_token', 'api_refresh_token'):
+            try:
+                del session[k]
+            except KeyError:
+                ...
         return redirect(
             f'http://{self.context.app.config["SERVER_NAME"]}{self.context.auth_settings["endpoints"]["root"]}/'
         )
@@ -115,7 +120,7 @@ class Module(module.ModuleModel):
     #     from flask import request
     #     try:
     #         data = self.context.rpc_manager.call.auth_manager_get_users(
-    #             url=self.context.auth_settings['manager']['users_url'],
+    #             url=self.context.auth_settings['manager']['user_url'],
     #             token=self.token(),
     #             realm=realm,
     #             **request.args
@@ -130,7 +135,7 @@ class Module(module.ModuleModel):
     #     return flask.jsonify(data)
 
     # def user_detail(self, realm: str, id_: str, retries: int = 0):
-    #     url = f"{self.context.auth_settings['manager']['users_url']}/{id_}"
+    #     url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
     #     try:
     #         data = self.context.rpc_manager.call.auth_manager_get_users(
     #             url=url,
@@ -163,7 +168,7 @@ class Module(module.ModuleModel):
 
     def user_update(self, realm: str, id_: str, body: [dict, UserRepresentation] = None):
         body = self._get_body(body)
-        url = f"{self.context.auth_settings['manager']['users_url']}/{id_}"
+        url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
         response = self.context.rpc_manager.call.auth_manager_put_users(
             url=url,
             token=self.token(),
@@ -175,7 +180,7 @@ class Module(module.ModuleModel):
 
     def user_create(self, realm: str, body: [dict, UserRepresentation] = None):
         body = self._get_body(body)
-        url = self.context.auth_settings['manager']['users_url']
+        url = self.context.auth_settings['manager']['user_url']
         response = self.context.rpc_manager.call.auth_manager_post_users(
             url=url,
             token=self.token(),
@@ -186,7 +191,7 @@ class Module(module.ModuleModel):
         return make_response('', response.status_code)
 
     def user_delete(self, realm: str, id_: str):
-        url = f"{self.context.auth_settings['manager']['users_url']}/{id_}"
+        url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
         response = self.context.rpc_manager.call.auth_manager_delete_users(
             url=url,
             token=self.token(),

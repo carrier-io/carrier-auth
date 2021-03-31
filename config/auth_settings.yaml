@@ -48,5 +48,6 @@ manager:
   token_url: "${APP_HOST}/auth/realms/master/protocol/openid-connect/token"
   username: "${AUTH_MANAGER_USERNAME}"
   password: "${AUTH_MANAGER_PASSWORD}"
-  users_url: "${APP_HOST}/auth/admin/realms/{realm}/users"
+  user_url: "${APP_HOST}/auth/admin/realms/{realm}/users"
+  group_url: "${APP_HOST}/auth/admin/realms/{realm}/groups"
 

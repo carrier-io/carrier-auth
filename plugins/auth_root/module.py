@@ -140,7 +140,16 @@ class Module(module.ModuleModel):
                 clear_auth_token()
                 self.handle_auth(auth_header)
             return make_response(json.dumps(get_auth_token()), 200)
-        return make_response(json.dumps(dict(session)), 200)
+
+        from copy import deepcopy
+        tmp = deepcopy(dict(session))
+        from plugins.auth_manager.utils import Token
+        try:
+            tmp['api_refresh_token'] = tmp.get('api_token').refresh_token
+        except AttributeError:
+            tmp['api_refresh_token'] = ''
+        tmp['api_token'] = str(tmp.get('api_token', ''))
+        return flask.jsonify(tmp)
         # return make_response({}, 200)
 
     def token(self):
@@ -170,9 +179,6 @@ class Module(module.ModuleModel):
         except Empty:
             log.error(f'Cannot find handler for auth_key {auth_key.lower()}')
             return make_response("KO", 401)
-        print('*'*88)
-        print('AUTH HANDLED FOR ', auth_key)
-        print('AUTH result: ', auth_result)
         return make_response(*auth_result)
 
 
