@@ -143,7 +143,6 @@ class Module(module.ModuleModel):
 
         from copy import deepcopy
         tmp = deepcopy(dict(session))
-        from plugins.auth_manager.utils import Token
         try:
             tmp['api_refresh_token'] = tmp.get('api_token').refresh_token
         except AttributeError:

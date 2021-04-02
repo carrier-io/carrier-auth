@@ -24,10 +24,11 @@ from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
 
 from plugins.auth_manager.api.base import BaseResource
-from plugins.auth_manager.api.group import GroupAPI, SubgroupAPI, GroupMemberAPI
+from plugins.auth_manager.api.group import GroupAPI
+from plugins.auth_manager.api.membership import MembershipAPI
 from plugins.auth_manager.api.user import UserAPI, UsergroupsAPI
-from plugins.auth_manager.models.user_pd import UserRepresentation
-from plugins.auth_manager.utils import AuthCreds, get_token, add_resource_to_api
+from plugins.auth_manager.models.token_pd import AuthCreds
+from plugins.auth_manager.utils.tools import add_resource_to_api, get_token
 
 
 class Module(module.ModuleModel):
@@ -56,18 +57,19 @@ class Module(module.ModuleModel):
                             f'/user/<string:realm>',
                             f'/user/<string:realm>/<string:user_id>'
                             )
-        add_resource_to_api(self.context.api, GroupMemberAPI,
-                            f'/group/<string:realm>/<string:group_id>/members',
-                            methods=['GET']
-                            )
-        add_resource_to_api(self.context.api, SubgroupAPI,
-                            f'/group/<string:realm>/<string:group_id>',
-                            methods=['POST']
-                            )
         add_resource_to_api(self.context.api, GroupAPI,
                             f'/group/<string:realm>',
                             f'/group/<string:realm>/<string:group_id>'
                             )
+        add_resource_to_api(self.context.api, MembershipAPI,
+                            f'/group/<string:realm>/membership',
+                            methods=['PUT']
+                            )
+        # add_resource_to_api(self.context.api, SubgroupAPI,
+        #                     f'/group/<string:realm>/<string:group_id>',
+        #                     methods=['POST']
+        #                     )
+
         # self.context.api.add_resource(user_api, f'{url_prefix}user/<string:realm>')
         # self.context.api.add_resource(user_api, '/user/<string:realm>/<string:user_id>')
         # print(self.context.api.endpoints)

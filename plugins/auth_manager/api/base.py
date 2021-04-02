@@ -14,68 +14,14 @@
 
 
 from functools import wraps
-from json import JSONDecodeError
-from typing import Optional, Any, Callable
-from flask import make_response, session
+from flask import session
 from flask_restful import Resource
 
-from pydantic import BaseModel
 from pylon.core.tools import log
-from requests import Response
 
-from plugins.auth_manager.utils import AuthCreds, get_token, RefreshCreds, refresh_token, TokenExpiredError, Token, \
-    TokenRefreshError
-
-
-class ApiResponseError(BaseModel):
-    message: Any = None
-    error_code: Optional[int] = None
-    error_description: Optional[str] = None
-
-
-class ApiResponse(BaseModel):
-    status: int = 200
-    success: bool = True
-    error: Optional[ApiResponseError] = ApiResponseError()
-    data: Any = {}
-    debug: Any = {}
-
-
-def api_response(response: Response, debug_processor: Optional[Callable] = None):
-    # print(f'{response=}')
-    debug_data = None
-    if debug_processor:
-        try:
-            debug_data = debug_processor(response)
-        except Exception as e:
-            debug_data = {'processor_failed': str(e)}
-    try:
-        data = response.json()
-    except JSONDecodeError:
-        data = response.text
-    if response.ok:
-        return api_data_response(data=data, debug=debug_data)
-    else:
-        error_data = ApiResponseError(
-            error_code=response.status_code,
-            message=data
-        )
-        return api_data_response(error=error_data, debug=debug_data)
-
-
-def api_data_response(data: Any = {}, error: Optional[ApiResponseError] = ApiResponseError(), debug: Any = {}):
-    resp = ApiResponse()
-    if data:
-        resp.data = data
-    if error.dict(exclude_unset=True):
-        resp.success = False
-        resp.error = error
-    if debug:
-        resp.debug = debug
-    try:
-        return make_response(resp.dict(exclude_none=True), resp.status)
-    except RuntimeError:  # in case of script test
-        return resp
+from plugins.auth_manager.models.token_pd import Token, AuthCreds, RefreshCreds
+from plugins.auth_manager.utils.exceptions import TokenExpiredError, TokenRefreshError
+from plugins.auth_manager.utils.tools import get_token, refresh_token
 
 
 class BaseResource(Resource):
@@ -129,27 +75,22 @@ class BaseResource(Resource):
                 except TypeError:
                     data = result.json
                 if not data['success']:
-                    if data['error'].get('error_code') == 401:
+                    if data.get('error', {}).get('error_code') == 401:
                         raise TokenExpiredError
                 return result
             except TokenExpiredError:
                 log.warning('Token expired, trying to refresh')
-                # refresh_creds = RefreshCreds(refresh_token=session['api_refresh_token'])
                 refresh_creds = RefreshCreds(refresh_token=session['api_token'].refresh_token)
                 try:
                     new_token = refresh_token(url=BaseResource._settings['manager']['token_url'], creds=refresh_creds)
                 except TokenRefreshError as e:
-                    error = ApiResponseError(
-                        error_description='Token Refresh Error',
-                        message=e.message,
-                    )
-                    return api_data_response(error=error)
+                    return func(*args, **kwargs, response_debug_processor=lambda r: {'TokenRefreshError': e.message})
 
                 session['api_token'] = new_token
                 # session['api_token'] = str(new_token)
                 # session['api_refresh_token'] = new_token.refresh_token
                 if 'token' in kwargs:
                     kwargs.update(token=new_token)
-                return func(*args, **kwargs)
+                return func(*args, **kwargs, response_debug_processor=lambda r: 'Token refreshed')
 
         return wrapper

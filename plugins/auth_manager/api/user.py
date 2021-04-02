@@ -16,131 +16,98 @@
 from typing import Optional, Union, Callable
 
 import requests
-from flask import request
+from flask import request, make_response
 
 from requests import Response
 
-from plugins.auth_manager.api.base import BaseResource, api_response, ApiResponseError, api_data_response
+from plugins.auth_manager.api.base import BaseResource
+from plugins.auth_manager.models.token_pd import Token
 from plugins.auth_manager.models.user_pd import UserRepresentation
-from plugins.auth_manager.utils import Token, ApiError
+from plugins.auth_manager.rpc import get_users, put_entity, post_entity, delete_entity
+from plugins.auth_manager.utils.tools import api_response
 
 
 class UserAPI(BaseResource):
-    @staticmethod
-    def _get(url: str, token: Union[str, Token], realm: str = '',
-                   response_debug_processor: Optional[Callable] = None, **kwargs) -> Response:
-        url = url.format(realm=realm)
-        headers = {'Authorization': str(token)}
-        response = requests.get(url, headers=headers, params=kwargs)
-        return api_response(response, debug_processor=response_debug_processor)
-
     @BaseResource.check_token
-    def get(self, realm: str, user_id: Optional[str] = None) -> Response:
-        url = self.settings['manager']['user_url']
-        if user_id:
-            url = f'{url}/{user_id}'
-        return self._get(
-            url=url,
-            token=self.token,
+    def get(self, realm: str, user_id: Optional[str] = None, **kwargs) -> Response:
+        response = get_users(
+            base_url=self.settings['manager']['user_url'],
             realm=realm,
-            **request.args
+            token=self.token,
+            user_id=user_id,
+            **request.args,
+            **kwargs
         )
-
-    @staticmethod
-    def _put(url: str, token: Union[str, Token], body: UserRepresentation, realm: str = '',
-                   response_debug_processor: Optional[Callable] = None) -> Response:
-        url = url.format(realm=realm)
-        headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
-        response = requests.put(url, headers=headers, json=body.dict(exclude_unset=True))
-        if not response_debug_processor:
-            response_debug_processor = lambda r: {
-                'status_code': r.status_code,
-                'updating_fields': body.dict(exclude_unset=True)
-            }
-        return api_response(response, debug_processor=response_debug_processor)
+        # todo: if not debug: return make_response(response.dict(exclude={'debug'}), response.status)
+        return make_response(response.dict(), response.status)
 
     @BaseResource.check_token
-    def put(self, realm: str, user_id: str) -> Response:
-        url = f"{self.settings['manager']['user_url']}/{user_id}"
+    def put(self, realm: str, user_id: str, **kwargs) -> Response:
         user = UserRepresentation.parse_obj(request.json)
-        return self._put(
-            url=url,
-            token=self.token,
-            realm=realm,
-            body=user
-        )
+        user.id = user_id
 
-    @staticmethod
-    def _post(url: str, token: Union[str, Token], body: UserRepresentation, realm: str = '',
-                    response_debug_processor: Optional[Callable] = None) -> Response:
-        if not body.username:
-            raise ApiError('Body must contain a username')
-        url = url.format(realm=realm)
-        headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
-        response = requests.post(url, headers=headers, json=body.dict(exclude_unset=True))
-        if not response_debug_processor:
-            response_debug_processor = lambda r: {
+        # todo: if not debug remove response_debug_processor
+        if 'response_debug_processor' not in kwargs:
+            kwargs['response_debug_processor'] = lambda r: {
                 'status_code': r.status_code,
-                'user_body': body.dict(exclude_unset=True)
+                'updating_fields': user.dict(exclude_unset=True)
             }
-        return api_response(response, debug_processor=response_debug_processor)
-
-    @BaseResource.check_token
-    def post(self, realm: str) -> Response:
-        url = self.settings['manager']['user_url']
-        user = UserRepresentation.parse_obj(request.json)
-        try:
-            return self._post(
-                url=url,
-                token=self.token,
-                realm=realm,
-                body=user
-            )
-        except ApiError as e:
-            error = ApiResponseError()
-            error.message = str(e)
-            return api_data_response(error=error)
-
-    @staticmethod
-    def _delete(url: str, token: Union[str, Token], realm: str = '',
-                      response_debug_processor: Optional[Callable] = None) -> Response:
-        url = url.format(realm=realm)
-        headers = {'Authorization': str(token)}
-        response = requests.delete(url, headers=headers)
-        if not response_debug_processor:
-            response_debug_processor = lambda r: {'status_code': r.status_code}
-        return api_response(response, debug_processor=response_debug_processor)
-
-    @BaseResource.check_token
-    def delete(self, realm: str, user_id: str) -> Response:
-        url = f"{self.settings['manager']['user_url']}/{user_id}"
-        return self._delete(
-            url=url,
-            token=self.token,
+        response = put_entity(
+            base_url=self.settings['manager']['user_url'],
             realm=realm,
+            token=self.token,
+            entity=user,
+            **kwargs
         )
+        print(f'def put {response.dict()}')
+        return make_response(response.dict(), response.status)
+
+    @BaseResource.check_token
+    def post(self, realm: str, **kwargs) -> Response:
+        user = UserRepresentation.parse_obj(request.json)
+        response = post_entity(
+            base_url=self.settings['manager']['user_url'],
+            realm=realm,
+            token=self.token,
+            entity=user,
+            **kwargs
+        )
+        print(f'def post {response.dict()}')
+        return make_response(response.dict(), response.status)
+
+    @BaseResource.check_token
+    def delete(self, realm: str, user_id: str, **kwargs) -> Response:
+        response = delete_entity(
+            base_url=self.settings['manager']['user_url'],
+            realm=realm,
+            token=self.token,
+            entity_or_id=user_id,
+            **kwargs
+        )
+        print(f'def delete {response.dict()}')
+        return make_response(response.dict(), response.status)
 
 
 class UsergroupsAPI(BaseResource):
-    @BaseResource.check_token
-    def get(self, realm: str, user_id: str) -> Response:
-        url = self.settings['manager']['user_url']
-        if user_id:
-            url = f'{url}/{user_id}/groups'
-        return UserAPI._get(
-            url=url,
-            token=self.token,
-            realm=realm,
-            **request.args
-        )
+    # @BaseResource.check_token
+    # def get(self, realm: str, user_id: str) -> Response:
+    #     url = self.settings['manager']['user_url']
+    #     if user_id:
+    #         url = f'{url}/{user_id}/groups'
+    #     return UserAPI._get(
+    #         url=url,
+    #         token=self.token,
+    #         realm=realm,
+    #         **request.args
+    #     )
 
-    @staticmethod
-    def _add_user_to_group(url: str, token: Union[str, Token], realm: str = '',
-             response_debug_processor: Optional[Callable] = None) -> Response:
-        url = url.format(realm=realm)
-        headers = {'Authorization': str(token)}
-        response = requests.put(url, headers=headers)
-        return api_response(response, debug_processor=response_debug_processor)
+    # @staticmethod
+    # def _add_user_to_group(url: str, token: Union[str, Token], realm: str = '',
+    #          response_debug_processor: Optional[Callable] = None) -> Response:
+    #     url = url.format(realm=realm)
+    #     headers = {'Authorization': str(token)}
+    #     response = requests.put(url, headers=headers)
+    #     return api_response(response, response_debug_processor=response_debug_processor)
 
     @BaseResource.check_token
     def put(self, realm: str, user_id: str, group_id: str) -> Response:
@@ -157,7 +124,7 @@ class UsergroupsAPI(BaseResource):
         url = url.format(realm=realm)
         headers = {'Authorization': str(token)}
         response = requests.delete(url, headers=headers)
-        return api_response(response, debug_processor=response_debug_processor)
+        return api_response(response, response_debug_processor=response_debug_processor)
 
     @BaseResource.check_token
     def delete(self, realm: str, user_id: str, group_id: str) -> Response:
