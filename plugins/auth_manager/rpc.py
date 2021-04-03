@@ -175,11 +175,52 @@ def add_users_to_groups(
                 response_debug_processor=response_debug_processor
             )
             if result.success:
-                resp.data.append(result.data)
+                resp.data.append(f'User <{user}> successfully joined group <{group}>')
             else:
                 resp.success = False
                 resp.status = 207
-                resp.error.message.append(result.error)
+                # for token decorator
+                if result.error.error_code == 401:
+                    resp.error.error_code = 401
+                resp.error.message.append({
+                    'description': f'User <{user}> failed to join group <{group}>',
+                    **result.error.dict()
+                })
+            if result.debug:
+                resp.debug.append(result.debug)
+    return resp
+
+
+def expel_users_from_groups(
+        *, user_url: str, realm: str, token: Token,
+        users: List[Union[UserRepresentation, str]], groups: List[Union[GroupRepresentation, str]],
+        response_debug_processor: Optional[Callable] = None,
+) -> ApiResponse:
+    url = user_url.format(realm=realm)
+    resp = ApiResponse()
+    resp.data = []
+    resp.error.message = []
+    resp.debug = []
+    for user in users:
+        for group in groups:
+            result = KeyCloakAPI.expel_user_from_group(
+                user_url=url,
+                token=token,
+                user=user, group=group,
+                response_debug_processor=response_debug_processor
+            )
+            if result.success:
+                resp.data.append(f'User <{user}> expelled from group <{group}>')
+            else:
+                resp.success = False
+                resp.status = 207
+                # for token decorator
+                if result.error.error_code == 401:
+                    resp.error.error_code = 401
+                resp.error.message.append({
+                    'description': f'User <{user}> failed to expell from group <{group}>',
+                    **result.error.dict()
+                })
             if result.debug:
                 resp.debug.append(result.debug)
     return resp

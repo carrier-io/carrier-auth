@@ -113,3 +113,18 @@ class KeyCloakAPI:
         headers = {'Authorization': str(token)}
         response = requests.put(url, headers=headers)
         return api_response(response, response_debug_processor=response_debug_processor)
+
+    @staticmethod
+    def expel_user_from_group(
+            user_url: str,
+            token: Union[str, Token],
+            user: Union[UserRepresentation, str],
+            group: Union[GroupRepresentation, str],
+            response_debug_processor: Optional[Callable] = None
+    ) -> ApiResponse:
+        user_id = get_id(user)
+        group_id = get_id(group)
+        url = f'{user_url.rstrip("/")}/{user_id}/groups/{group_id}'
+        headers = {'Authorization': str(token)}
+        response = requests.delete(url, headers=headers)
+        return api_response(response, response_debug_processor=response_debug_processor)

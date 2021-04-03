@@ -63,7 +63,7 @@ class Module(module.ModuleModel):
                             )
         add_resource_to_api(self.context.api, MembershipAPI,
                             f'/group/<string:realm>/membership',
-                            methods=['PUT']
+                            methods=['PUT', 'POST']
                             )
         # add_resource_to_api(self.context.api, SubgroupAPI,
         #                     f'/group/<string:realm>/<string:group_id>',
