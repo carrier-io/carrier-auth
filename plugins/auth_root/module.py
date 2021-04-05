@@ -128,28 +128,18 @@ class Module(module.ModuleModel):
 
     def me(self):
         if isinstance(session.get("auth_attributes"), dict):
-            return make_response(json.dumps(
+            return flask.jsonify(
                 {
                     "username": session.get("auth_attributes")['preferred_username'],
                     "groups": session.get("auth_attributes")['groups']
                 }
-            ), 200)
+            )
         if "Authorization" in request.headers:
             auth_header = request.headers.get("Authorization", "")
             if not check_auth_token(auth_header):
                 clear_auth_token()
                 self.handle_auth(auth_header)
-            return make_response(json.dumps(get_auth_token()), 200)
-
-        from copy import deepcopy
-        tmp = deepcopy(dict(session))
-        try:
-            tmp['api_refresh_token'] = tmp.get('api_token').refresh_token
-        except AttributeError:
-            tmp['api_refresh_token'] = ''
-        tmp['api_token'] = str(tmp.get('api_token', ''))
-        return flask.jsonify(tmp)
-        # return make_response({}, 200)
+            return flask.jsonify(get_auth_token())
 
     def token(self):
         return redirect(self.context.auth_settings["auth"]["token_handler"], 302)
@@ -171,10 +161,13 @@ class Module(module.ModuleModel):
             return make_response("OK", 200)
         # return AuthHandler()[auth_key]
         try:
-            auth_result = self.context.rpc_manager.call('{prefix}{key}'.format(
-                prefix=self.context.auth_settings["config"]["auth_handler"]["prefix"],
-                key=auth_key.lower()
-            ))
+            auth_result = self.context.rpc_manager.call_with_timeout(
+                func='{prefix}{key}'.format(
+                    prefix=self.context.auth_settings["rpc_manager"]["prefix"],
+                    key=auth_key.lower()
+                ),
+                timeout=self.context.auth_settings['rpc_manager']['timeout']
+            )
         except Empty:
             log.error(f'Cannot find handler for auth_key {auth_key.lower()}')
             return make_response("KO", 401)

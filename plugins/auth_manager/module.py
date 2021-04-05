@@ -28,7 +28,10 @@ from plugins.auth_manager.api.group import GroupAPI
 from plugins.auth_manager.api.membership import MembershipAPI
 from plugins.auth_manager.api.user import UserAPI, UsergroupsAPI
 from plugins.auth_manager.models.token_pd import AuthCreds
+from plugins.auth_manager.rpc import get_users, get_groups, put_entity, post_entity, post_group, delete_entity, \
+    add_users_to_groups, expel_users_from_groups
 from plugins.auth_manager.utils.tools import add_resource_to_api, get_token
+from plugins.auth_root.utils.decorators import push_kwargs
 
 
 class Module(module.ModuleModel):
@@ -38,16 +41,14 @@ class Module(module.ModuleModel):
         self.settings = settings
         self.root_path = root_path
         self.context = context
+        self.rpc_prefix = 'auth_manager_'
 
     def init(self):
         """ Init module """
         log.info('Initializing module auth_manager')
         url_prefix = f'{self.context.url_prefix}/{self.context.auth_settings["endpoints"]["manager"]}/'
 
-        # print(self.context.api)
         BaseResource.set_settings(self.context.auth_settings)
-        # print(f'{UserAPI.settings}')
-        # print(f'{BaseResource.settings}')
         add_resource_to_api(self.context.api, UsergroupsAPI,
                             f'/user/<string:realm>/<string:user_id>/groups',
                             f'/user/<string:realm>/<string:user_id>/groups/<string:group_id>',
@@ -76,28 +77,70 @@ class Module(module.ModuleModel):
         # print(self.context.api)
         # https://flask-restful.readthedocs.io/en/latest/quickstart.html#a-minimal-api
 
-        self.context.rpc_manager.register_function(get_token, name='auth_manager_get_token')
-        # self.context.rpc_manager.register_function(get_users, name='auth_manager_get_users')
-        # self.context.rpc_manager.register_function(put_users, name='auth_manager_put_users')
-        # self.context.rpc_manager.register_function(post_users, name='auth_manager_post_users')
-        # self.context.rpc_manager.register_function(delete_users, name='auth_manager_delete_users')
 
+        # rpc_manager
+        # token
+        self.context.rpc_manager.register_function(
+            push_kwargs(
+                url=self.context.auth_settings['manager']['token_url'],
+                creds=AuthCreds(
+                    username=self.context.auth_settings['manager']['username'],
+                    password=self.context.auth_settings['manager']['password']
+                )
+            )(get_token),
+            name=f'{self.rpc_prefix}get_token'
+        )
+        # get functions
+        self.context.rpc_manager.register_function(get_users, name=f'{self.rpc_prefix}get_users')
+        self.context.rpc_manager.register_function(get_groups, name=f'{self.rpc_prefix}get_groups')
+        # put functions
+        self.context.rpc_manager.register_function(put_entity, name=f'{self.rpc_prefix}put_entity')
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.context.auth_settings['manager']['user_url'])(put_entity),
+            name=f'{self.rpc_prefix}put_user'
+        )
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.context.auth_settings['manager']['group_url'])(put_entity),
+            name=f'{self.rpc_prefix}put_group'
+        )
+        # post functions
+        self.context.rpc_manager.register_function(post_entity, name=f'{self.rpc_prefix}post_entity')
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.context.auth_settings['manager']['user_url'])(post_entity),
+            name=f'{self.rpc_prefix}post_user'
+        )
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.context.auth_settings['manager']['group_url'])(post_group),
+            name=f'{self.rpc_prefix}post_group'
+        )
+        # delete functions
+        self.context.rpc_manager.register_function(delete_entity, name=f'{self.rpc_prefix}delete_entity')
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.context.auth_settings['manager']['user_url'])(delete_entity),
+            name=f'{self.rpc_prefix}delete_user'
+        )
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.context.auth_settings['manager']['group_url'])(delete_entity),
+            name=f'{self.rpc_prefix}delete_group'
+        )
+        # group membership functions
+        self.context.rpc_manager.register_function(
+            push_kwargs(user_url=self.context.auth_settings['manager']['user_url'])(add_users_to_groups),
+            name=f'{self.rpc_prefix}add_users_to_groups'
+        )
+        self.context.rpc_manager.register_function(
+            push_kwargs(user_url=self.context.auth_settings['manager']['user_url'])(expel_users_from_groups),
+            name=f'{self.rpc_prefix}expel_users_from_groups'
+        )
+
+
+        # blueprint endpoints
         bp = flask.Blueprint(
             'auth_manager', 'plugins.auth_manager',
             root_path=self.root_path,
             url_prefix=url_prefix
         )
-        # bp.add_url_rule('/token', 'token', self.token, methods=['GET'])
         bp.add_url_rule('/clear_token', 'clear_token', self.clear_token, methods=['GET'])
-
-        # # bp.add_url_rule('/users/<realm>', 'user-list', self.user_list, methods=['GET'])
-        # # bp.add_url_rule('/users/<realm>/<id_>', 'user-detail', self.user_detail, methods=['GET'])
-        # bp.add_url_rule('/users/<realm>/<id_>', 'user-update', self.user_update, methods=['PUT'])
-        # bp.add_url_rule('/users/<realm>', 'user-create', self.user_create, methods=['POST'])
-        # bp.add_url_rule('/users/<realm>/<id_>', 'user-delete', self.user_delete, methods=['DELETE'])
-
-
-
         # Register in app
         self.context.app.register_blueprint(bp)
 
@@ -105,21 +148,21 @@ class Module(module.ModuleModel):
         """ De-init module """
         log.info('De-initializing module auth_manager')
 
-    def token(self):
-        token = session.get('api_token')
-        if not token:
-            creds = AuthCreds(
-                username=self.context.auth_settings['manager']['username'],
-                password=self.context.auth_settings['manager']['password']
-            )
-            token = self.context.rpc_manager.call.auth_manager_get_token(
-                self.context.auth_settings['manager']['token_url'],
-                creds
-            )
-            session['api_token'] = token
-            # session['api_token'] = str(token)
-            # session['api_refresh_token'] = token.refresh_token
-        return token
+    # def token(self):
+    #     token = session.get('api_token')
+    #     if not token:
+    #         creds = AuthCreds(
+    #             username=self.context.auth_settings['manager']['username'],
+    #             password=self.context.auth_settings['manager']['password']
+    #         )
+    #         token = self.context.rpc_manager.call.auth_manager_get_token(
+    #             self.context.auth_settings['manager']['token_url'],
+    #             creds
+    #         )
+    #         session['api_token'] = token
+    #         # session['api_token'] = str(token)
+    #         # session['api_refresh_token'] = token.refresh_token
+    #     return token
 
     def clear_token(self):
         from flask import redirect
@@ -131,87 +174,3 @@ class Module(module.ModuleModel):
         return redirect(
             f'http://{self.context.app.config["SERVER_NAME"]}{self.context.auth_settings["endpoints"]["root"]}/'
         )
-
-    # def user_list(self, realm: str = 'master', retries: int = 0):
-    #     from flask import request
-    #     try:
-    #         data = self.context.rpc_manager.call.auth_manager_get_users(
-    #             url=self.context.auth_settings['manager']['user_url'],
-    #             token=self.token(),
-    #             realm=realm,
-    #             **request.args
-    #         )
-    #     except ApiError:
-    #         log.warning('Reacquiring api token')
-    #         self.clear_token()
-    #         if retries > 2:
-    #             return make_response(ApiError, 500)
-    #         return self.user_list(realm=realm, retries=retries+1)
-    #     # return parse_obj_as(List[UserRepresentation], data).json()
-    #     return flask.jsonify(data)
-
-    # def user_detail(self, realm: str, id_: str, retries: int = 0):
-    #     url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
-    #     try:
-    #         data = self.context.rpc_manager.call.auth_manager_get_users(
-    #             url=url,
-    #             token=self.token(),
-    #             realm=realm,
-    #         )
-    #     except ApiError:
-    #         log.warning('Reacquiring api token')
-    #         self.clear_token()
-    #         if retries > 2:
-    #             return make_response(ApiError, 500)
-    #         return self.user_detail(realm=realm, id_=id_, retries=retries+1)
-    #     # return parse_obj_as(List[UserRepresentation], data).json()
-    #     return flask.jsonify(data)
-
-    # @staticmethod
-    # def _get_body(body: [dict, UserRepresentation] = None):
-    #     if not body:
-    #         body = request.json
-    #         if not body:
-    #             return flask.jsonify({'error': 'body required'})
-    #     if isinstance(body, dict):
-    #         body = UserRepresentation.parse_obj(request.json)
-    #     elif isinstance(body, str):
-    #         body = UserRepresentation.parse_raw(request.json)
-    #     else:
-    #         if not isinstance(body, UserRepresentation):
-    #             body = UserRepresentation(**body)
-    #     return body
-
-    # def user_update(self, realm: str, id_: str, body: [dict, UserRepresentation] = None):
-    #     body = self._get_body(body)
-    #     url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
-    #     response = self.context.rpc_manager.call.auth_manager_put_users(
-    #         url=url,
-    #         token=self.token(),
-    #         realm=realm,
-    #         body=body
-    #     )
-    #
-    #     return make_response('', response.status_code)
-    #
-    # def user_create(self, realm: str, body: [dict, UserRepresentation] = None):
-    #     body = self._get_body(body)
-    #     url = self.context.auth_settings['manager']['user_url']
-    #     response = self.context.rpc_manager.call.auth_manager_post_users(
-    #         url=url,
-    #         token=self.token(),
-    #         realm=realm,
-    #         body=body
-    #     )
-    #
-    #     return make_response('', response.status_code)
-    #
-    # def user_delete(self, realm: str, id_: str):
-    #     url = f"{self.context.auth_settings['manager']['user_url']}/{id_}"
-    #     response = self.context.rpc_manager.call.auth_manager_delete_users(
-    #         url=url,
-    #         token=self.token(),
-    #         realm=realm,
-    #     )
-
-        # return make_response('', response.status_code)

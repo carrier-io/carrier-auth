@@ -19,12 +19,11 @@ from plugins.auth_manager.models.api_response_pd import ApiResponse
 from plugins.auth_manager.models.group_pd import GroupRepresentation
 from plugins.auth_manager.models.token_pd import Token
 from plugins.auth_manager.models.user_pd import UserRepresentation
-from plugins.auth_manager.utils.exceptions import AmbiguousIdError
 from plugins.auth_manager.utils.keycloak_api import KeyCloakAPI
 from plugins.auth_manager.utils.tools import get_id
 
 
-# rpc_name: auth_get_user
+# rpc_name: auth_manager_get_user
 def get_users(
         *, base_url: str, realm: str, token: Token,
         user_id: Optional[str] = None,
@@ -59,7 +58,7 @@ def get_users(
     )
 
 
-# rpc_name: auth_get_group
+# rpc_name: auth_manager_get_group
 def get_groups(
         *, base_url: str, realm: str, token: Token,
         group_id: Optional[str] = None,
@@ -97,9 +96,9 @@ def get_groups(
     )
 
 
-# rpc_name: auth_put_entity
+# rpc_name: auth_manager_put_entity
 def put_entity(
-        *, base_url: str, realm: str, token: Token, entity: Union[UserRepresentation, GroupRepresentation, str],
+        *, base_url: str, realm: str, token: Token, entity: Union[UserRepresentation, GroupRepresentation],
         response_debug_processor: Optional[Callable] = None,
 
 ) -> ApiResponse:
@@ -114,7 +113,7 @@ def put_entity(
     )
 
 
-# rpc_name: auth_post_user
+# rpc_name: auth_manager_post_user
 def post_entity(
         *, base_url: str, realm: str, token: Token, entity: Union[UserRepresentation, GroupRepresentation],
         response_debug_processor: Optional[Callable] = None
@@ -128,7 +127,7 @@ def post_entity(
     )
 
 
-# rpc_name: auth_post_group
+# rpc_name: auth_manager_post_group
 def post_group(
         group: GroupRepresentation,
         *args, **kwargs
@@ -138,7 +137,7 @@ def post_group(
     return post_entity(*args, **kwargs, entity=group)
 
 
-# rpc_name: auth_delete_entity
+# rpc_name: auth_manager_delete_entity
 def delete_entity(
         *, base_url: str, realm: str, token: Token, entity_or_id: Union[UserRepresentation, GroupRepresentation, str],
         response_debug_processor: Optional[Callable] = None
@@ -155,7 +154,7 @@ def delete_entity(
     )
 
 
-# rpc_name: auth_add_users_to_groups
+# rpc_name: auth_manager_add_users_to_groups
 def add_users_to_groups(
         *, user_url: str, realm: str, token: Token,
         users: List[Union[UserRepresentation, str]], groups: List[Union[GroupRepresentation, str]],
@@ -191,6 +190,7 @@ def add_users_to_groups(
     return resp
 
 
+# rpc_name: auth_manager_expel_users_from_groups
 def expel_users_from_groups(
         *, user_url: str, realm: str, token: Token,
         users: List[Union[UserRepresentation, str]], groups: List[Union[GroupRepresentation, str]],
@@ -218,7 +218,7 @@ def expel_users_from_groups(
                 if result.error.error_code == 401:
                     resp.error.error_code = 401
                 resp.error.message.append({
-                    'description': f'User <{user}> failed to expell from group <{group}>',
+                    'description': f'User <{user}> failed to be expelled from group <{group}>',
                     **result.error.dict()
                 })
             if result.debug:

@@ -51,11 +51,11 @@ class Module(module.ModuleModel):
         # self.context.rpc_manager.register_function(basic, name='authhandler_basic')
         self.context.rpc_manager.register_function(
             push_kwargs(auth_settings=self.context.auth_settings)(basic),
-            name='authhandler_basic'
+            name='{prefix}basic'.format(prefix=self.context.auth_settings["rpc_manager"]["prefix"])
         )
         self.context.rpc_manager.register_function(
             push_kwargs(auth_settings=self.context.auth_settings)(bearer),
-            name='authhandler_bearer'
+            name='{prefix}bearer'.format(prefix=self.context.auth_settings["rpc_manager"]["prefix"])
         )
         # AuthHandler()['basic'] = basic
         # AuthHandler()['bearer'] = bearer
