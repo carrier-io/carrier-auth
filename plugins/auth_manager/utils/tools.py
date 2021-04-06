@@ -87,12 +87,6 @@ def api_data_response(
 
 
 def get_id(obj: Any, possible_id_attribute_name='id', raise_on_error=True):
-    print(f'{obj=}')
-    print(f'{isinstance(obj, BaseModel)=}')
-    # print(f'{issubclass(obj, BaseModel)=}')
-    print(f'{issubclass(type(obj), BaseModel)=}')
-    print(f'{is_subclass_of_base_model(obj)=}')
-
     if isinstance(obj, str):
         return obj
     if isinstance(obj, dict):

@@ -48,11 +48,8 @@ def _validate_basic_auth(
 @require_auth_settings
 def basic(auth_value: str, **kwargs) -> Tuple[str, int]:
     KEY_NAME = 'basic'
-    print('HANDLER BASIC CALLED')
-    print(f'HANDLER BASIC CALLED {auth_value=}')
     username, password = b64decode(auth_value.strip()).decode().split(":", 1)
     is_ok, auth_data = _validate_basic_auth(username, password, **kwargs)
-    print(f'HANDLER BASIC CALLED {is_ok=}')
     if is_ok:
         set_auth_token(auth_header=f'{KEY_NAME} {auth_value}', value=json.dumps(auth_data))
         return 'OK', 200

@@ -110,10 +110,10 @@ class BaseResource(Resource):
             try:
                 result = func(*args, **kwargs)
                 try:
-                    print(f'check_token try {type(result)=} {result=}')
+                    # print(f'check_token try {type(result)=} {result=}')
                     data = result.json()
                 except TypeError:
-                    print(f'check_token TypeError {type(result)=} {result=}')
+                    # print(f'check_token TypeError {type(result)=} {result=}')
                     data = result.json
                 if not data['success']:
                     if data.get('error', {}).get('error_code') == 401:

@@ -36,7 +36,6 @@ class KeyCloakAPI:
     ) -> ApiResponse:
         headers = {'Authorization': str(token)}
         response = requests.get(url, headers=headers, params=kwargs)
-        print('RJRJJ', response.json())
         return api_response(
             response, response_debug_processor=response_debug_processor, response_data_type=response_data_type)
 

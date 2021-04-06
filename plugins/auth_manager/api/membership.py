@@ -26,8 +26,6 @@ class MembershipAPI(BaseResource):
             groups=data.groups,
             **kwargs
         )
-        print(f'MembershipAPI {response.dict()}')
-        print(f'MembershipAPI kwargs {kwargs}')
         return make_response(response.dict(), response.status)
 
     # delete cannot have json payload
@@ -42,6 +40,4 @@ class MembershipAPI(BaseResource):
             groups=data.groups,
             **kwargs
         )
-        print(f'MembershipAPI {response.dict()}')
-        print(f'MembershipAPI kwargs {kwargs}')
         return make_response(response.dict(), response.status)

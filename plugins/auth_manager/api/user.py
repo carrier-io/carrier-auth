@@ -59,7 +59,6 @@ class UserAPI(BaseResource):
             entity=user,
             **kwargs
         )
-        print(f'def put {response.dict()}')
         return make_response(response.dict(), response.status)
 
     @BaseResource.check_token
@@ -72,7 +71,6 @@ class UserAPI(BaseResource):
             entity=user,
             **kwargs
         )
-        print(f'def post {response.dict()}')
         return make_response(response.dict(), response.status)
 
     @BaseResource.check_token
@@ -84,7 +82,6 @@ class UserAPI(BaseResource):
             entity_or_id=user_id,
             **kwargs
         )
-        print(f'def delete {response.dict()}')
         return make_response(response.dict(), response.status)
 
 

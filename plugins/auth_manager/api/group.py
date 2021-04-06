@@ -55,7 +55,6 @@ class GroupAPI(BaseResource):
             entity=group,
             **kwargs
         )
-        print(f'def put {response.dict()}')
         return make_response(response.dict(), response.status)
 
     @BaseResource.check_token
@@ -68,7 +67,6 @@ class GroupAPI(BaseResource):
             group=group,
             **kwargs
         )
-        print(f'def post {response.dict()}')
         return make_response(response.dict(), response.status)
 
 
@@ -81,7 +79,6 @@ class GroupAPI(BaseResource):
             entity_or_id=group_id,
             **kwargs
         )
-        print(f'def delete {response.dict()}')
         return make_response(response.dict(), response.status)
 
 

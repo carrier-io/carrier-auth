@@ -45,12 +45,6 @@ def set_auth_token(auth_header: str, value: Optional[str] = '') -> None:
 
 
 def check_auth(auth_header: str, *, rpc_prefix: str, rpc_timeout: int, rpc_manager: RpcManager) -> Response:
-    print('Checking auth', '!!!')
-    print(f'{auth_header=}')
-    print(f'{rpc_prefix=}')
-    print(f'{rpc_timeout=}')
-    print(f'{rpc_manager=}')
-    print('Checking auth', '!!!')
     try:
         auth_key, auth_value = auth_header.strip().split(" ")
     except ValueError:
