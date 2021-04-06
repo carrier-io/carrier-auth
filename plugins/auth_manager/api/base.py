@@ -14,11 +14,15 @@
 
 
 from functools import wraps
-from flask import session
-from flask_restful import Resource
+from typing import Callable
+
+from flask import session, request
+from flask_restful import Resource, abort
 
 from pylon.core.tools import log
+from pylon.core.tools.rpc import RpcManager
 
+from plugins.auth_manager.models.api_response_pd import ApiResponse
 from plugins.auth_manager.models.token_pd import Token, AuthCreds, RefreshCreds
 from plugins.auth_manager.utils.exceptions import TokenExpiredError, TokenRefreshError
 from plugins.auth_manager.utils.tools import get_token, refresh_token
@@ -26,6 +30,7 @@ from plugins.auth_manager.utils.tools import get_token, refresh_token
 
 class BaseResource(Resource):
     _settings: dict = {}
+    _rpc_manager: RpcManager = None
 
     @classmethod
     def set_settings(cls, auth_settings: dict):
@@ -47,22 +52,56 @@ class BaseResource(Resource):
     def settings(self, value: dict) -> None:
         BaseResource.set_settings(value)
 
+    @classmethod
+    def set_rpc_manager(cls, rpc_manager: RpcManager):
+        BaseResource._rpc_manager = rpc_manager
+
+    @classmethod
+    def get_rpc_manager(cls):
+        if not BaseResource._rpc_manager:
+            print('rpc_manager from context')
+            from flask import current_app
+            BaseResource.set_settings(current_app.config["CONTEXT"].rpc_manager)
+        return BaseResource._rpc_manager
+
+    @property
+    def rpc_manager(self) -> RpcManager:
+        return BaseResource.get_rpc_manager()
+
+    @rpc_manager.setter
+    def rpc_manager(self, value: RpcManager) -> None:
+        BaseResource.set_rpc_manager(value)
+
+    def get_token(self):
+        creds = AuthCreds(
+            username=self.settings['manager']['username'],
+            password=self.settings['manager']['password']
+        )
+        token = get_token(
+            self.settings['manager']['token_url'],
+            creds
+        )
+        return token
+
     @property
     def token(self) -> Token:
+        if not self.check_authorized():
+            abort(401)
         token = session.get('api_token')
         if not token:
-            creds = AuthCreds(
-                username=self.settings['manager']['username'],
-                password=self.settings['manager']['password']
-            )
-            token = get_token(
-                self.settings['manager']['token_url'],
-                creds
-            )
+            token = self.get_token()
             session['api_token'] = token
-            # session['api_token'] = str(token)
-            # session['api_refresh_token'] = token.refresh_token
         return token
+
+    @staticmethod
+    def check_authorized() -> bool:
+        if "Authorization" in request.headers:
+            check_result = BaseResource._rpc_manager.call_function(
+                func='{prefix}check_auth'.format(prefix=BaseResource._settings['rpc_manager']['prefix']),
+                auth_header=request.headers.get("Authorization", "")
+            )
+            return check_result.status_code == 200
+        return False
 
     @staticmethod
     def check_token(func):
@@ -71,8 +110,10 @@ class BaseResource(Resource):
             try:
                 result = func(*args, **kwargs)
                 try:
+                    print(f'check_token try {type(result)=} {result=}')
                     data = result.json()
                 except TypeError:
+                    print(f'check_token TypeError {type(result)=} {result=}')
                     data = result.json
                 if not data['success']:
                     if data.get('error', {}).get('error_code') == 401:
@@ -80,17 +121,15 @@ class BaseResource(Resource):
                 return result
             except TokenExpiredError:
                 log.warning('Token expired, trying to refresh')
+                debug_message = 'Token refreshed'
                 refresh_creds = RefreshCreds(refresh_token=session['api_token'].refresh_token)
                 try:
-                    new_token = refresh_token(url=BaseResource._settings['manager']['token_url'], creds=refresh_creds)
+                    session['api_token'] = refresh_token(url=BaseResource._settings['manager']['token_url'], creds=refresh_creds)
+                    if 'token' in kwargs:
+                        kwargs.update(token=session['api_token'])
                 except TokenRefreshError as e:
-                    return func(*args, **kwargs, response_debug_processor=lambda r: {'TokenRefreshError': e.message})
-
-                session['api_token'] = new_token
-                # session['api_token'] = str(new_token)
-                # session['api_refresh_token'] = new_token.refresh_token
-                if 'token' in kwargs:
-                    kwargs.update(token=new_token)
-                return func(*args, **kwargs, response_debug_processor=lambda r: 'Token refreshed')
-
+                    # return func(*args, **kwargs, response_debug_processor=lambda r: {'TokenRefreshError': e.message})
+                    session['api_token'] = BaseResource().get_token()
+                    debug_message = 'Token refresh failed, got new token'
+                return func(*args, **kwargs, response_debug_processor=lambda r: debug_message)
         return wrapper

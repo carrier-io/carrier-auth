@@ -42,26 +42,21 @@ class Module(module.ModuleModel):
         self.settings = settings
         self.root_path = root_path
         self.context = context
+        self.rpc_prefix = None
 
     def init(self):
         """ Init module """
         log.info('Initializing module auth_oidc')
+        self.rpc_prefix = self.context.auth_settings['rpc_manager']['prefix']
 
-        # self.context.node_name
-        # self.context.rpc_manager.register_function(basic, name='authhandler_basic')
         self.context.rpc_manager.register_function(
             push_kwargs(auth_settings=self.context.auth_settings)(basic),
-            name='{prefix}basic'.format(prefix=self.context.auth_settings["rpc_manager"]["prefix"])
+            name=f'{self.rpc_prefix}basic'
         )
         self.context.rpc_manager.register_function(
             push_kwargs(auth_settings=self.context.auth_settings)(bearer),
-            name='{prefix}bearer'.format(prefix=self.context.auth_settings["rpc_manager"]["prefix"])
+            name=f'{self.rpc_prefix}bearer'
         )
-        # AuthHandler()['basic'] = basic
-        # AuthHandler()['bearer'] = bearer
-
-        # print('&'*88)
-        # print(self.context.node_name)
 
         bp = flask.Blueprint(
             'auth_oidc', 'plugins.auth_oidc',
@@ -113,7 +108,6 @@ class Module(module.ModuleModel):
             "redirect_uri": f"{client.registration_response['redirect_uris'][0]}{redirect_uri}",
         })
         login_url = auth_req.request(client.authorization_endpoint)
-        print('LOGIN URL', login_url)
         return login_url
 
     def callback(self):

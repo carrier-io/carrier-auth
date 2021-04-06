@@ -31,7 +31,7 @@ class GroupAPI(BaseResource):
             base_url=self.settings['manager']['group_url'],
             realm=realm,
             token=self.token,
-            group_id=group_id,
+            group_or_id=group_id,
             search=request.args.get('search'),
             **kwargs
         )

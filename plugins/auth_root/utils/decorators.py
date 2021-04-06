@@ -5,10 +5,10 @@ from pylon.core.tools import log
 
 
 class KwargsRequiredError(Exception):
-    MESSAGE = 'kwargs: {} are required to be in func'
+    _message = 'kwargs: {} are required to be in func'
 
     def __init__(self, detail: Optional[tuple] = ''):
-        super(KwargsRequiredError, self).__init__(self.MESSAGE.format(detail))
+        super(KwargsRequiredError, self).__init__(self._message.format(detail))
 
 
 def require_kwargs(*required_kwargs):
@@ -17,7 +17,6 @@ def require_kwargs(*required_kwargs):
         def wrapper(*args, **kwargs):
             if not all(i in kwargs for i in required_kwargs):
                 raise KwargsRequiredError(required_kwargs)
-            # print('require_kwargs GOT ', kwargs)
             return func(*args, **kwargs)
         return wrapper
     return decor
@@ -37,7 +36,6 @@ def push_kwargs(**pushed_kwargs):
                     f'Using explicit {kwargs} by default'
                 )
             pushed_kwargs.update(kwargs)
-            # print('oush kwargs got', pushed_kwargs)
             return func(*args, **pushed_kwargs)
         return wrapper
     return decor

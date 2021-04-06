@@ -15,7 +15,7 @@
 
 from typing import Optional, Union, Callable, List
 
-from plugins.auth_manager.models.api_response_pd import ApiResponse
+from plugins.auth_manager.models.api_response_pd import ApiResponse, is_subclass_of_base_model
 from plugins.auth_manager.models.group_pd import GroupRepresentation
 from plugins.auth_manager.models.token_pd import Token
 from plugins.auth_manager.models.user_pd import UserRepresentation
@@ -26,12 +26,13 @@ from plugins.auth_manager.utils.tools import get_id
 # rpc_name: auth_manager_get_user
 def get_users(
         *, base_url: str, realm: str, token: Token,
-        user_id: Optional[str] = None,
+        user_or_id: Optional[Union[str, UserRepresentation]] = None,
         response_debug_processor: Optional[Callable] = None,
         with_groups: bool = True,
         **kwargs
 ) -> ApiResponse:
     url = base_url.format(realm=realm)
+    user_id = get_id(user_or_id, raise_on_error=False)
     if user_id:
         url = f'{url.rstrip("/")}/{user_id}'
         if with_groups:
@@ -45,9 +46,11 @@ def get_users(
             )
             if user_data.success:
                 groups_data = KeyCloakAPI.get_user_groups(user_url=url, token=token)
-                user_data.data.groups = groups_data.data
+                if isinstance(user_data.data, dict):
+                    user_data.data['groups'] = groups_data.data
+                else:
+                    user_data.data.groups = groups_data.data
             return user_data
-
     return KeyCloakAPI.get(
         url=url,
         token=token,
@@ -61,14 +64,14 @@ def get_users(
 # rpc_name: auth_manager_get_group
 def get_groups(
         *, base_url: str, realm: str, token: Token,
-        group_id: Optional[str] = None,
+        group_or_id: Optional[Union[str, GroupRepresentation]] = None,
         search: Optional[str] = None,
         response_debug_processor: Optional[Callable] = None,
         with_members: bool = True
 ) -> ApiResponse:
     search_kwarg = dict()
     url = base_url.format(realm=realm)
-
+    group_id = get_id(group_or_id, raise_on_error=False)
     if group_id:
         url = f'{url}/{group_id}'
         if with_members:
@@ -81,7 +84,9 @@ def get_groups(
             )
             if group_data.success:
                 members_data = KeyCloakAPI.get_group_members(group_url=url, token=token)
-                group_data.data.members = members_data.data
+                if is_subclass_of_base_model(members_data.data):
+                    group_data.data.members = members_data.data
+                members_data.data['members'] = members_data.data
             return group_data
     elif search:
         search_kwarg['search'] = search

@@ -13,9 +13,14 @@
 #   limitations under the License.
 
 import hashlib
+from queue import Empty
 from typing import Optional, Iterable
 
-from flask import session
+from flask import session, Response, make_response
+from pylon.core.tools import log
+from pylon.core.tools.rpc import RpcManager
+
+from plugins.auth_root.utils.decorators import require_kwargs
 
 
 def encode_header(auth_header):
@@ -37,3 +42,32 @@ def clear_auth_token() -> None:
 def set_auth_token(auth_header: str, value: Optional[str] = '') -> None:
     session['name'] = encode_header(auth_header)
     session['value'] = encode_header(value)
+
+
+def check_auth(auth_header: str, *, rpc_prefix: str, rpc_timeout: int, rpc_manager: RpcManager) -> Response:
+    print('Checking auth', '!!!')
+    print(f'{auth_header=}')
+    print(f'{rpc_prefix=}')
+    print(f'{rpc_timeout=}')
+    print(f'{rpc_manager=}')
+    print('Checking auth', '!!!')
+    try:
+        auth_key, auth_value = auth_header.strip().split(" ")
+    except ValueError:
+        return make_response("KO", 401)
+    if check_auth_token(auth_header=auth_header):
+        return make_response("OK", 200)
+    try:
+        auth_result = rpc_manager.call_function_with_timeout(
+            func='{prefix}{key}'.format(
+                prefix=rpc_prefix,
+                key=auth_key.lower()
+            ),
+            timeout=rpc_timeout,
+            auth_value=auth_value
+        )
+    except Empty:
+        log.error(f'Cannot find handler for auth_key {auth_key.lower()}')
+        return make_response("KO", 401)
+    return make_response(*auth_result)
+

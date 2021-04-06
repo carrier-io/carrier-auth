@@ -20,7 +20,7 @@ from flask_restful import Api, Resource
 from pydantic import BaseModel
 from requests import Response
 
-from plugins.auth_manager.models.api_response_pd import ApiResponse
+from plugins.auth_manager.models.api_response_pd import ApiResponse, is_subclass_of_base_model
 from plugins.auth_manager.models.token_pd import AuthCreds, Token, RefreshCreds
 from plugins.auth_manager.utils.exceptions import TokenRefreshError, IdExtractError
 
@@ -48,7 +48,8 @@ def refresh_token(url: str, creds: RefreshCreds) -> Token:
 def api_response(
         response: Response,
         response_data_type: Union[Callable, BaseModel, List, None] = None,
-        response_debug_processor: Optional[Callable] = None) -> ApiResponse:
+        response_debug_processor: Optional[Callable] = None
+) -> ApiResponse:
     resp = ApiResponse()
     data = resp.get_data_from_response(response)
     resp.debug = resp.get_debug_data(response, response_debug_processor)
@@ -85,14 +86,23 @@ def api_data_response(
     return resp
 
 
-def get_id(obj: Any, possible_id_attribute_name='id'):
+def get_id(obj: Any, possible_id_attribute_name='id', raise_on_error=True):
+    print(f'{obj=}')
+    print(f'{isinstance(obj, BaseModel)=}')
+    # print(f'{issubclass(obj, BaseModel)=}')
+    print(f'{issubclass(type(obj), BaseModel)=}')
+    print(f'{is_subclass_of_base_model(obj)=}')
+
     if isinstance(obj, str):
         return obj
-    if issubclass(obj, BaseModel):
+    if isinstance(obj, dict):
+        return obj.get(possible_id_attribute_name)
+    if is_subclass_of_base_model(obj):
         try:
             return obj.__getattribute__(possible_id_attribute_name)
         except AttributeError:
-            raise IdExtractError(obj, possible_id_attribute_name)
-    if isinstance(obj, dict):
-        return obj.get(possible_id_attribute_name)
-    raise IdExtractError(obj, possible_id_attribute_name)
+            if raise_on_error:
+                raise IdExtractError(obj, possible_id_attribute_name)
+    if raise_on_error:
+        raise IdExtractError(obj, possible_id_attribute_name)
+    return None

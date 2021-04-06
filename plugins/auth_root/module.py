@@ -17,14 +17,13 @@
 
 """ Module """
 import importlib
-import json
 import os
 from queue import Empty
 
 import flask  # pylint: disable=E0401
 import jinja2  # pylint: disable=E0401
 import yaml
-from flask import request, make_response, session, redirect
+from flask import request, make_response, session, redirect, Response
 from time import time
 
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
@@ -32,7 +31,7 @@ from pylon.core.tools import module  # pylint: disable=E0611,E0401
 from pylon.core.tools.config import config_substitution, vault_secrets
 
 from plugins.auth_root.utils.decorators import push_kwargs
-from plugins.auth_root.utils.token_manager import check_auth_token, clear_auth_token, get_auth_token
+from plugins.auth_root.utils.token_manager import check_auth_token, clear_auth_token, get_auth_token, check_auth
 
 
 class Module(module.ModuleModel):
@@ -42,12 +41,13 @@ class Module(module.ModuleModel):
         self.settings = settings
         self.root_path = root_path
         self.context = context
+        self.rpc_prefix = None
+
 
     def init(self):
         """ Init module """
         log.info('Initializing module auth_root')
         try:
-            # self.context.app.config.from_object(Config())
             self.context.auth_settings = self.load_config()
         except (TypeError, FileNotFoundError) as e:
             log.error(
@@ -59,6 +59,7 @@ class Module(module.ModuleModel):
             self.deinit()
             return
 
+        self.rpc_prefix = self.context.auth_settings['rpc_manager']['prefix']
         bp = flask.Blueprint(  # pylint: disable=C0103
             'auth_root', 'plugins.auth_root',
             root_path=self.root_path,
@@ -73,7 +74,15 @@ class Module(module.ModuleModel):
         # Register in app
         self.context.app.register_blueprint(bp)
 
-        # self.context.app.register_blueprint(bp, url_prefix=self.context.app.config['SETTINGS']['endpoints']['root'])
+        # rpc_manager
+        self.context.rpc_manager.register_function(
+            push_kwargs(
+                rpc_manager=self.context.rpc_manager,
+                rpc_prefix=self.rpc_prefix,
+                rpc_timeout=int(self.context.auth_settings['rpc_manager']['timeout'])
+            )(check_auth),
+            name=f'{self.rpc_prefix}check_auth'
+        )
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
@@ -139,7 +148,7 @@ class Module(module.ModuleModel):
             if not check_auth_token(auth_header):
                 clear_auth_token()
                 self.handle_auth(auth_header)
-            return flask.jsonify(get_auth_token())
+        return flask.jsonify(get_auth_token())
 
     def token(self):
         return redirect(self.context.auth_settings["auth"]["token_handler"], 302)
@@ -152,26 +161,10 @@ class Module(module.ModuleModel):
         return redirect(
             self.context.auth_settings["auth"]["logout_handler"] + (f"?to={to}" if to else ""))
 
-    def handle_auth(self, auth_header: str):
-        try:
-            auth_key, auth_value = auth_header.strip().split(" ")
-        except ValueError:
-            return make_response("KO", 401)
-        if check_auth_token(auth_header=auth_header):
-            return make_response("OK", 200)
-        # return AuthHandler()[auth_key]
-        try:
-            auth_result = self.context.rpc_manager.call_with_timeout(
-                func='{prefix}{key}'.format(
-                    prefix=self.context.auth_settings["rpc_manager"]["prefix"],
-                    key=auth_key.lower()
-                ),
-                timeout=self.context.auth_settings['rpc_manager']['timeout']
-            )
-        except Empty:
-            log.error(f'Cannot find handler for auth_key {auth_key.lower()}')
-            return make_response("KO", 401)
-        return make_response(*auth_result)
-
-
-
+    def handle_auth(self, auth_header) -> Response:
+        return check_auth(
+            auth_header,
+            rpc_manager=self.context.rpc_manager,
+            rpc_prefix=self.rpc_prefix,
+            rpc_timeout=int(self.context.auth_settings['rpc_manager']['timeout'])
+        )

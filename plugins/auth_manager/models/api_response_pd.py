@@ -63,16 +63,33 @@ class ApiResponse(BaseModel):
 
     @staticmethod
     def format_response_data(data: Any, response_data_type: Union[Callable, BaseModel, List]):
-        if issubclass(response_data_type, BaseModel):
-            try:
+        if is_subclass_of_base_model(response_data_type):
+            if isinstance(data, str):
+                parsed_data = response_data_type.parse_raw(data)
+            elif isinstance(data, list):
+                parsed_data = parse_obj_as(List[response_data_type], data)
+            elif isinstance(data, dict):
                 parsed_data = response_data_type.parse_obj(data)
-            except (ValidationError, TypeError) as e:
-                if isinstance(data, str):
-                    parsed_data = response_data_type.parse_raw(data)
-                elif isinstance(data, list):
-                    parsed_data = parse_obj_as(List[response_data_type], data)
-                else:
-                    raise e
+            else:
+                raise ValidationError
+
         else:
             parsed_data = response_data_type(data)
         return parsed_data
+
+
+def is_subclass_of_base_model(obj: Any):
+    results = [False]
+    try:
+        results.append(isinstance(obj, BaseModel))
+    except TypeError:
+        ...
+    try:
+        results.append(issubclass(type(obj), BaseModel))
+    except TypeError:
+        ...
+    try:
+        results.append(issubclass(obj, BaseModel))
+    except TypeError:
+        ...
+    return any(results)

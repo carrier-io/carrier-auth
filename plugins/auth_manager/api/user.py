@@ -34,7 +34,7 @@ class UserAPI(BaseResource):
             base_url=self.settings['manager']['user_url'],
             realm=realm,
             token=self.token,
-            user_id=user_id,
+            user_or_id=user_id,
             **request.args,
             **kwargs
         )
@@ -88,7 +88,7 @@ class UserAPI(BaseResource):
         return make_response(response.dict(), response.status)
 
 
-class UsergroupsAPI(BaseResource):
+# class UsergroupsAPI(BaseResource):
     # @BaseResource.check_token
     # def get(self, realm: str, user_id: str) -> Response:
     #     url = self.settings['manager']['user_url']
@@ -109,28 +109,28 @@ class UsergroupsAPI(BaseResource):
     #     response = requests.put(url, headers=headers)
     #     return api_response(response, response_debug_processor=response_debug_processor)
 
-    @BaseResource.check_token
-    def put(self, realm: str, user_id: str, group_id: str) -> Response:
-        url = f"{self.settings['manager']['user_url']}/{user_id}/groups/{group_id}"
-        return self._add_user_to_group(
-            url=url,
-            token=self.token,
-            realm=realm,
-        )
-
-    @staticmethod
-    def _remove_user_from_group(url: str, token: Union[str, Token], realm: str = '',
-                           response_debug_processor: Optional[Callable] = None) -> Response:
-        url = url.format(realm=realm)
-        headers = {'Authorization': str(token)}
-        response = requests.delete(url, headers=headers)
-        return api_response(response, response_debug_processor=response_debug_processor)
-
-    @BaseResource.check_token
-    def delete(self, realm: str, user_id: str, group_id: str) -> Response:
-        url = f"{self.settings['manager']['user_url']}/{user_id}/groups/{group_id}"
-        return self._remove_user_from_group(
-            url=url,
-            token=self.token,
-            realm=realm,
-        )
+    # @BaseResource.check_token
+    # def put(self, realm: str, user_id: str, group_id: str) -> Response:
+    #     url = f"{self.settings['manager']['user_url']}/{user_id}/groups/{group_id}"
+    #     return self._add_user_to_group(
+    #         url=url,
+    #         token=self.token,
+    #         realm=realm,
+    #     )
+    #
+    # @staticmethod
+    # def _remove_user_from_group(url: str, token: Union[str, Token], realm: str = '',
+    #                        response_debug_processor: Optional[Callable] = None) -> Response:
+    #     url = url.format(realm=realm)
+    #     headers = {'Authorization': str(token)}
+    #     response = requests.delete(url, headers=headers)
+    #     return api_response(response, response_debug_processor=response_debug_processor)
+    #
+    # @BaseResource.check_token
+    # def delete(self, realm: str, user_id: str, group_id: str) -> Response:
+    #     url = f"{self.settings['manager']['user_url']}/{user_id}/groups/{group_id}"
+    #     return self._remove_user_from_group(
+    #         url=url,
+    #         token=self.token,
+    #         realm=realm,
+    #     )

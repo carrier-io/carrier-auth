@@ -26,7 +26,7 @@ from pylon.core.tools import module  # pylint: disable=E0611,E0401
 from plugins.auth_manager.api.base import BaseResource
 from plugins.auth_manager.api.group import GroupAPI
 from plugins.auth_manager.api.membership import MembershipAPI
-from plugins.auth_manager.api.user import UserAPI, UsergroupsAPI
+from plugins.auth_manager.api.user import UserAPI
 from plugins.auth_manager.models.token_pd import AuthCreds
 from plugins.auth_manager.rpc import get_users, get_groups, put_entity, post_entity, post_group, delete_entity, \
     add_users_to_groups, expel_users_from_groups
@@ -41,19 +41,18 @@ class Module(module.ModuleModel):
         self.settings = settings
         self.root_path = root_path
         self.context = context
-        self.rpc_prefix = 'auth_manager_'
+        self.rpc_prefix = None
 
     def init(self):
         """ Init module """
         log.info('Initializing module auth_manager')
+
+        self.rpc_prefix = f'{self.context.auth_settings["rpc_manager"]["prefix"]}manager_'
         url_prefix = f'{self.context.url_prefix}/{self.context.auth_settings["endpoints"]["manager"]}/'
 
         BaseResource.set_settings(self.context.auth_settings)
-        add_resource_to_api(self.context.api, UsergroupsAPI,
-                            f'/user/<string:realm>/<string:user_id>/groups',
-                            f'/user/<string:realm>/<string:user_id>/groups/<string:group_id>',
-                            methods=['GET', 'PUT', 'DELETE']
-                            )
+        BaseResource.set_rpc_manager(self.context.rpc_manager)
+
         add_resource_to_api(self.context.api, UserAPI,
                             f'/user/<string:realm>',
                             f'/user/<string:realm>/<string:user_id>'
@@ -63,20 +62,9 @@ class Module(module.ModuleModel):
                             f'/group/<string:realm>/<string:group_id>'
                             )
         add_resource_to_api(self.context.api, MembershipAPI,
-                            f'/group/<string:realm>/membership',
+                            f'/membership/<string:realm>',
                             methods=['PUT', 'POST']
                             )
-        # add_resource_to_api(self.context.api, SubgroupAPI,
-        #                     f'/group/<string:realm>/<string:group_id>',
-        #                     methods=['POST']
-        #                     )
-
-        # self.context.api.add_resource(user_api, f'{url_prefix}user/<string:realm>')
-        # self.context.api.add_resource(user_api, '/user/<string:realm>/<string:user_id>')
-        # print(self.context.api.endpoints)
-        # print(self.context.api)
-        # https://flask-restful.readthedocs.io/en/latest/quickstart.html#a-minimal-api
-
 
         # rpc_manager
         # token
@@ -91,8 +79,12 @@ class Module(module.ModuleModel):
             name=f'{self.rpc_prefix}get_token'
         )
         # get functions
-        self.context.rpc_manager.register_function(get_users, name=f'{self.rpc_prefix}get_users')
-        self.context.rpc_manager.register_function(get_groups, name=f'{self.rpc_prefix}get_groups')
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.context.auth_settings['manager']['user_url'])(get_users),
+            name=f'{self.rpc_prefix}get_users')
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.context.auth_settings['manager']['group_url'])(get_groups),
+            name=f'{self.rpc_prefix}get_groups')
         # put functions
         self.context.rpc_manager.register_function(put_entity, name=f'{self.rpc_prefix}put_entity')
         self.context.rpc_manager.register_function(
@@ -147,22 +139,6 @@ class Module(module.ModuleModel):
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
         log.info('De-initializing module auth_manager')
-
-    # def token(self):
-    #     token = session.get('api_token')
-    #     if not token:
-    #         creds = AuthCreds(
-    #             username=self.context.auth_settings['manager']['username'],
-    #             password=self.context.auth_settings['manager']['password']
-    #         )
-    #         token = self.context.rpc_manager.call.auth_manager_get_token(
-    #             self.context.auth_settings['manager']['token_url'],
-    #             creds
-    #         )
-    #         session['api_token'] = token
-    #         # session['api_token'] = str(token)
-    #         # session['api_refresh_token'] = token.refresh_token
-    #     return token
 
     def clear_token(self):
         from flask import redirect

@@ -42,7 +42,7 @@ oidc:
     - "${APP_HOST}"
 rpc_manager:
   timeout: 3
-  prefix: "auth_handler_"
+  prefix: "auth_"
 manager:
   token_url: "${APP_HOST}/auth/realms/master/protocol/openid-connect/token"
   username: "${AUTH_MANAGER_USERNAME}"
