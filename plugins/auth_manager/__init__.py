@@ -1,4 +1,7 @@
-#   Copyright 2020 getcarrier.io
+#!/usr/bin/python3
+# coding=utf-8
+
+#   Copyright 2021 getcarrier.io
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -12,13 +15,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+""" Module init """
 
-def clear_session(session):
-    session["name"] = "auth"
-    session["state"] = ""
-    session["nonce"] = ""
-    session["auth"] = False
-    session["auth_errors"] = []
-    session["auth_nameid"] = ""
-    session["auth_sessionindex"] = ""
-    session["auth_attributes"] = ""
+from plugins.auth_manager.module import Module

@@ -12,12 +12,15 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from flask import request, current_app, session
+from flask import request, session
+
+from plugins.auth_root.utils.decorators import require_auth_settings
 
 
-def auth(scope, response):
+@require_auth_settings
+def auth(scope, response, auth_settings: dict = None):
     """ Map auth data """
-    response.headers["X-Auth-Session-Endpoint"] = f"{request.base_url}{current_app.config['endpoints']['info']}/query"
+    response.headers["X-Auth-Session-Endpoint"] = f"{request.base_url}{auth_settings['endpoints']['info']}/query"
     response.headers["X-Auth-Session-Name"] = session["name"]
     return response
 
