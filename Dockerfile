@@ -11,9 +11,7 @@ RUN pip install -r requirements.txt
 COPY plugins ./plugins
 COPY config/pylon.yml ./config/pylon.yml
 COPY config/auth_settings.yaml ./config/auth_settings.yaml
-#COPY app.py .
 COPY setup.py .
-#RUN set -x && pip install --no-cache-dir /app
-RUN set -x && pip install /app
+RUN set -x && pip install --no-cache-dir /app
 
 ENTRYPOINT ["app"]
