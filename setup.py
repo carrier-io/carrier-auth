@@ -19,16 +19,16 @@ with open("requirements.txt") as f:
 
 setup(
     name="auth",
-    version="0.0.1",
+    version="0.1.1",
     license="Apache License 2.0",
     author="Carrier team",
     author_email="artem_rozumenko@epam.com",
     url="https://getcarrier.io",
     description="Auth middleware",
-    long_description="Auth middleware",
+    long_description="Auth pylon plugin set",
     packages=find_packages(),
     zip_safe=False,
     include_package_data=True,
     install_requires=required_dependencies,
-    entry_points={"console_scripts": ["app = auth.app:main"]},
+    entry_points={"console_scripts": ["app = pylon:main.main"]},
 )
