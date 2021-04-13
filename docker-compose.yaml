@@ -207,6 +207,30 @@ services:
     working_dir: /app
     command: python app.py
 
+  grafana:
+    image: grafana/grafana
+    networks:
+      - pylon
+    ports:
+      - 3000:3000
+
+  loki:
+    image: grafana/loki
+    networks:
+      - pylon
+    ports:
+      - 3100:3100
+#    command: -config.file=./config/loki.yml
+
+
+  promtail:
+    image: grafana/promtail
+#    volumes:
+#      - /var/log:/var/log
+#    command: -config.file=./config/promtail.yml
+    networks:
+      - pylon
+
 
 volumes:
   postgre-data:

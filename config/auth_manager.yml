@@ -1,0 +1,9 @@
+endpoints:
+  root: "/forward-auth/manager"
+keycloak_urls:
+  token: "${APP_HOST}/auth/realms/master/protocol/openid-connect/token"
+  user: "${APP_HOST}/auth/admin/realms/{realm}/users"
+  group: "${APP_HOST}/auth/admin/realms/{realm}/groups"
+token_credentials:
+  username: "${AUTH_MANAGER_USERNAME}"
+  password: "${AUTH_MANAGER_PASSWORD}"

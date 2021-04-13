@@ -1,6 +1,6 @@
 {
   "name": "Auth Root Plugin",
-  "version": "0.2",
+  "version": "0.3",
   "module": "plugins.auth_root",
   "extract": false,
   "depends_on": [],

@@ -1,0 +1,15 @@
+endpoints:
+  root: "/forward-auth"
+  access_denied: "/access_denied"
+disable_auth: false
+auth_redirect: "${APP_HOST}/forward-auth/login"
+login_handler_url: "${APP_HOST}/forward-auth/oidc/login"
+token_handler_url: "${APP_HOST}/forward-auth/oidc/token"
+logout_handler_url: "${APP_HOST}/forward-auth/oidc/logout"
+login_default_redirect_url: "${APP_HOST}/"
+rpc_manager:
+  timeout: 3
+  prefix:
+    root: "auth_"
+    mappers: "auth_mappers_"
+    manager: "auth_manager_"

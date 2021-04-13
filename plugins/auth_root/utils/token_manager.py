@@ -20,8 +20,6 @@ from flask import session, Response, make_response
 from pylon.core.tools import log
 from pylon.core.tools.rpc import RpcManager
 
-from plugins.auth_root.utils.decorators import require_kwargs
-
 
 def encode_header(auth_header):
     return hashlib.sha256(auth_header.encode()).hexdigest()

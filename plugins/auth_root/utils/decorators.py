@@ -5,7 +5,7 @@ from pylon.core.tools import log
 
 
 class KwargsRequiredError(Exception):
-    _message = 'kwargs: {} are required to be in func'
+    _message = 'kwargs: {} are required to be set'
 
     def __init__(self, detail: Optional[tuple] = ''):
         super(KwargsRequiredError, self).__init__(self._message.format(detail))
