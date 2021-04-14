@@ -28,7 +28,7 @@ class GroupAPI(BaseResource):
     @BaseResource.check_token
     def get(self, realm: str, group_id: Optional[str] = None, **kwargs) -> Response:
         response = get_groups(
-            base_url=self.settings['manager']['group_url'],
+            base_url=self.settings['keycloak_urls']['group'],
             realm=realm,
             token=self.token,
             group_or_id=group_id,
@@ -49,7 +49,7 @@ class GroupAPI(BaseResource):
                 'updating_fields': group.dict(exclude_unset=True)
             }
         response = put_entity(
-            base_url=self.settings['manager']['group_url'],
+            base_url=self.settings['keycloak_urls']['group'],
             realm=realm,
             token=self.token,
             entity=group,
@@ -61,7 +61,7 @@ class GroupAPI(BaseResource):
     def post(self, realm: str, **kwargs) -> Response:
         group = GroupRepresentation.parse_obj(request.json)
         response = post_group(
-            base_url=self.settings['manager']['group_url'],
+            base_url=self.settings['keycloak_urls']['group'],
             realm=realm,
             token=self.token,
             group=group,
@@ -73,7 +73,7 @@ class GroupAPI(BaseResource):
     @BaseResource.check_token
     def delete(self, realm: str, group_id: str, **kwargs) -> Response:
         response = delete_entity(
-            base_url=self.settings['manager']['group_url'],
+            base_url=self.settings['keycloak_urls']['group'],
             realm=realm,
             token=self.token,
             entity_or_id=group_id,
@@ -99,7 +99,7 @@ class SubgroupAPI(BaseResource):
     #
     # @BaseResource.check_token
     # def post(self, realm: str, group_id: str) -> Response:
-    #     url = f"{self.settings['manager']['group_url']}/{group_id}/children"
+    #     url = f"{self.settings['keycloak_urls']['group']}/{group_id}/children"
     #     try:
     #         group = GroupRepresentation.parse_obj(request.json)
     #     except ValidationError as e:

@@ -68,6 +68,7 @@ class Module(module.ModuleModel):
                 func=handler.main,
                 name=f'{self.rpc_prefix}{handler.KEY_NAME}'
             )
+            log.debug(f'Auth handler {str(auth_handler)} registered in rpc_manager under name {self.rpc_prefix}{handler.KEY_NAME}')
 
         bp = flask.Blueprint(
             'auth_oidc', 'plugins.auth_oidc',

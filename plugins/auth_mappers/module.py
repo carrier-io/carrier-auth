@@ -61,11 +61,12 @@ class Module(module.ModuleModel):
             access_denied_endpoint=root_settings['endpoints']['access_denied']
         )
         # rpc_manager
-        for k, v in mappers.items():
+        for mapper_name, mapper_instance in mappers.items():
             self.context.rpc_manager.register_function(
-                func=v.auth,
-                name=f'{self.rpc_prefix}{k}'
+                func=mapper_instance.auth,
+                name=f'{self.rpc_prefix}{mapper_name}'
             )
+            log.debug(f'Auth mapper {str(mapper_name)} registered in rpc_manager under name {self.rpc_prefix}{mapper_name}')
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """

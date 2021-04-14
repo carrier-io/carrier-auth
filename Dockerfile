@@ -6,7 +6,7 @@ RUN pip install --upgrade setuptools
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt --no-cache
 
 COPY plugins ./plugins
 COPY config/pylon.yml ./config/pylon.yml

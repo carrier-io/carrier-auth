@@ -19,7 +19,7 @@ class MembershipAPI(BaseResource):
     def put(self, realm: str, **kwargs) -> Response:
         data = Membership.parse_obj(request.json)
         response = add_users_to_groups(
-            user_url=self.settings['manager']['user_url'],
+            user_url=self.settings['keycloak_urls']['user'],
             realm=realm,
             token=self.token,
             users=data.users,
@@ -33,7 +33,7 @@ class MembershipAPI(BaseResource):
     def post(self, realm: str, **kwargs) -> Response:
         data = Membership.parse_obj(request.json)
         response = expel_users_from_groups(
-            user_url=self.settings['manager']['user_url'],
+            user_url=self.settings['keycloak_urls']['user'],
             realm=realm,
             token=self.token,
             users=data.users,

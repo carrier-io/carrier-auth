@@ -223,13 +223,13 @@ services:
 #    command: -config.file=./config/loki.yml
 
 
-  promtail:
-    image: grafana/promtail
-#    volumes:
-#      - /var/log:/var/log
-#    command: -config.file=./config/promtail.yml
-    networks:
-      - pylon
+#  promtail:
+#    image: grafana/promtail
+##    volumes:
+##      - /var/log:/var/log
+##    command: -config.file=./config/promtail.yml
+#    networks:
+#      - pylon
 
 
 volumes:

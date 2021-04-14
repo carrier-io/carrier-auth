@@ -41,11 +41,7 @@ class Module(module.ModuleModel):
     """ Pylon module """
 
     def __init__(self, settings, root_path, context):
-        if isinstance(settings, bytes):
-            settings = yaml.load(os.path.expandvars(settings), Loader=yaml.SafeLoader)
-            self.settings = config_substitution(settings, vault_secrets(settings))
-        else:
-            self.settings = settings
+        self.settings = settings
         self.root_path = root_path
         self.context = context
         self.rpc_prefix = None
@@ -53,11 +49,26 @@ class Module(module.ModuleModel):
     def init(self):
         """ Init module """
         log.info('Initializing module auth_manager')
+        with self.context.app.app_context():
+            from flask import current_app
+            import json
+            x = current_app.config["CONTEXT"]
+            x = json.dumps(x.__dict__, indent=2, skipkeys=True, default=lambda o: str(o))
+            print(x)
+            print('######', current_app.config["CONTEXT"].auth_manager)
+            # for k, v in x.items():
+            #     print('$$$', k, '==', v)
+        _, _, root_module = self.context.module_manager.get_module("auth_root")
+        root_settings = root_module.settings
 
-        self.rpc_prefix = f'{self.context.auth_settings["rpc_manager"]["prefix"]}manager_'
-        url_prefix = f'{self.context.url_prefix}/{self.context.auth_settings["endpoints"]["manager"]}/'
+        self.rpc_prefix = root_settings['rpc_manager']['prefix']['manager']
+        url_prefix = f'{self.context.url_prefix}/{self.settings["endpoints"]["root"]}/'
 
-        BaseResource.set_settings(self.context.auth_settings)
+        BaseResource.set_settings(
+            self.settings,
+            rpc_prefix=self.rpc_prefix,
+            rpc_prefix_root=root_settings['rpc_manager']['prefix']['root']
+        )
         BaseResource.set_rpc_manager(self.context.rpc_manager)
 
         add_resource_to_api(self.context.api, UserAPI,
@@ -77,58 +88,58 @@ class Module(module.ModuleModel):
         # token
         self.context.rpc_manager.register_function(
             push_kwargs(
-                url=self.context.auth_settings['manager']['token_url'],
+                url=self.settings['keycloak_urls']['token'],
                 creds=AuthCreds(
-                    username=self.context.auth_settings['manager']['username'],
-                    password=self.context.auth_settings['manager']['password']
+                    username=self.settings['token_credentials']['username'],
+                    password=self.settings['token_credentials']['password']
                 )
             )(get_token),
             name=f'{self.rpc_prefix}get_token'
         )
         # get functions
         self.context.rpc_manager.register_function(
-            push_kwargs(base_url=self.context.auth_settings['manager']['user_url'])(get_users),
+            push_kwargs(base_url=self.settings['keycloak_urls']['user'])(get_users),
             name=f'{self.rpc_prefix}get_users')
         self.context.rpc_manager.register_function(
-            push_kwargs(base_url=self.context.auth_settings['manager']['group_url'])(get_groups),
+            push_kwargs(base_url=self.settings['keycloak_urls']['group'])(get_groups),
             name=f'{self.rpc_prefix}get_groups')
         # put functions
         self.context.rpc_manager.register_function(put_entity, name=f'{self.rpc_prefix}put_entity')
         self.context.rpc_manager.register_function(
-            push_kwargs(base_url=self.context.auth_settings['manager']['user_url'])(put_entity),
+            push_kwargs(base_url=self.settings['keycloak_urls']['user'])(put_entity),
             name=f'{self.rpc_prefix}put_user'
         )
         self.context.rpc_manager.register_function(
-            push_kwargs(base_url=self.context.auth_settings['manager']['group_url'])(put_entity),
+            push_kwargs(base_url=self.settings['keycloak_urls']['group'])(put_entity),
             name=f'{self.rpc_prefix}put_group'
         )
         # post functions
         self.context.rpc_manager.register_function(post_entity, name=f'{self.rpc_prefix}post_entity')
         self.context.rpc_manager.register_function(
-            push_kwargs(base_url=self.context.auth_settings['manager']['user_url'])(post_entity),
+            push_kwargs(base_url=self.settings['keycloak_urls']['user'])(post_entity),
             name=f'{self.rpc_prefix}post_user'
         )
         self.context.rpc_manager.register_function(
-            push_kwargs(base_url=self.context.auth_settings['manager']['group_url'])(post_group),
+            push_kwargs(base_url=self.settings['keycloak_urls']['group'])(post_group),
             name=f'{self.rpc_prefix}post_group'
         )
         # delete functions
         self.context.rpc_manager.register_function(delete_entity, name=f'{self.rpc_prefix}delete_entity')
         self.context.rpc_manager.register_function(
-            push_kwargs(base_url=self.context.auth_settings['manager']['user_url'])(delete_entity),
+            push_kwargs(base_url=self.settings['keycloak_urls']['user'])(delete_entity),
             name=f'{self.rpc_prefix}delete_user'
         )
         self.context.rpc_manager.register_function(
-            push_kwargs(base_url=self.context.auth_settings['manager']['group_url'])(delete_entity),
+            push_kwargs(base_url=self.settings['keycloak_urls']['group'])(delete_entity),
             name=f'{self.rpc_prefix}delete_group'
         )
         # group membership functions
         self.context.rpc_manager.register_function(
-            push_kwargs(user_url=self.context.auth_settings['manager']['user_url'])(add_users_to_groups),
+            push_kwargs(user_url=self.settings['keycloak_urls']['user'])(add_users_to_groups),
             name=f'{self.rpc_prefix}add_users_to_groups'
         )
         self.context.rpc_manager.register_function(
-            push_kwargs(user_url=self.context.auth_settings['manager']['user_url'])(expel_users_from_groups),
+            push_kwargs(user_url=self.settings['keycloak_urls']['user'])(expel_users_from_groups),
             name=f'{self.rpc_prefix}expel_users_from_groups'
         )
 
@@ -147,13 +158,15 @@ class Module(module.ModuleModel):
         """ De-init module """
         log.info('De-initializing module auth_manager')
 
-    def clear_token(self):
-        from flask import redirect
+    @staticmethod
+    def clear_token():
+        # from flask import redirect
         for k in ('api_token', 'api_refresh_token'):
             try:
                 del session[k]
             except KeyError:
                 ...
-        return redirect(
-            f'http://{self.context.app.config["SERVER_NAME"]}{self.context.auth_settings["endpoints"]["root"]}/'
-        )
+        # return redirect(
+        #     f'http://{self.context.app.config["SERVER_NAME"]}{self.context.auth_settings["endpoints"]["root"]}/'
+        # )
+        return make_response(None, 204)

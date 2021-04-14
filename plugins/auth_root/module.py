@@ -45,17 +45,6 @@ class Module(module.ModuleModel):
     def init(self):
         """ Init module """
         log.info('Initializing module auth_root')
-        try:
-            self.context.auth_settings = self.load_config()
-        except (TypeError, FileNotFoundError) as e:
-            log.error(
-                f'Settings file path is invalid. '
-                f'Check "CONFIG_FILENAME" env. '
-                f'Current is: {os.getenv("CONFIG_FILENAME")}\n'
-                f'{e}'
-            )
-            self.deinit()
-            return
 
         self.rpc_prefix = self.settings['rpc_manager']['prefix']['root']
         bp = flask.Blueprint(  # pylint: disable=C0103
