@@ -16,7 +16,6 @@
 #   limitations under the License.
 
 """ Module """
-import importlib
 import os
 from queue import Empty
 
@@ -43,27 +42,15 @@ class Module(module.ModuleModel):
         self.context = context
         self.rpc_prefix = None
 
-
     def init(self):
         """ Init module """
         log.info('Initializing module auth_root')
-        try:
-            self.context.auth_settings = self.load_config()
-        except (TypeError, FileNotFoundError) as e:
-            log.error(
-                f'Settings file path is invalid. '
-                f'Check "CONFIG_FILENAME" env. '
-                f'Current is: {os.getenv("CONFIG_FILENAME")}\n'
-                f'{e}'
-            )
-            self.deinit()
-            return
 
-        self.rpc_prefix = self.context.auth_settings['rpc_manager']['prefix']
+        self.rpc_prefix = self.settings['rpc_manager']['prefix']['root']
         bp = flask.Blueprint(  # pylint: disable=C0103
             'auth_root', 'plugins.auth_root',
             root_path=self.root_path,
-            url_prefix=f'{self.context.url_prefix}/{self.context.auth_settings["endpoints"]["root"]}/'
+            url_prefix=f'{self.context.url_prefix}/{self.settings["endpoints"]["root"]}/'
         )
         bp.add_url_rule('/auth', 'auth', self.auth)
         bp.add_url_rule('/me', 'me', self.me, methods=['GET'])
@@ -79,7 +66,7 @@ class Module(module.ModuleModel):
             push_kwargs(
                 rpc_manager=self.context.rpc_manager,
                 rpc_prefix=self.rpc_prefix,
-                rpc_timeout=int(self.context.auth_settings['rpc_manager']['timeout'])
+                rpc_timeout=int(self.settings['rpc_manager']['timeout'])
             )(check_auth),
             name=f'{self.rpc_prefix}check_auth'
         )
@@ -114,25 +101,36 @@ class Module(module.ModuleModel):
             else:
                 session["X-Forwarded-Uri"] = request.base_url
         if not session.get("auth_attributes") or session["auth_attributes"]["exp"] < int(time()):
-            return redirect(self.context.auth_settings["auth"]["login_handler"], 302)
-        if not session.get("auth", False) and not self.context.auth_settings["global"]["disable_auth"]:
+            return redirect(self.settings["login_handler_url"], 302)
+        if not session.get("auth", False) and not self.settings["disable_auth"]:
             # Redirect to login
-            return redirect(self.context.auth_settings["auth"].get(
+            return redirect(self.settings.get(
                 "auth_redirect",
                 f"{request.base_url}{request.script_root}/login")
             )
         if target is None:
             target = "raw"
+
         # Map auth response
         response = make_response("OK")
         try:
-            mapper = importlib.import_module(f"plugins.auth_root.mappers.{target}")
-            response = push_kwargs(auth_settings=self.context.auth_settings)(mapper.auth)(scope, response)
-        except (ImportError, AttributeError, TypeError):
+            self.context.rpc_manager.call_function_with_timeout(
+                func='{prefix}{key}'.format(
+                    prefix=self.settings['rpc_manager']['prefix']['mappers'],
+                    key=target.lower()
+                ),
+                timeout=int(self.settings['rpc_manager']['timeout']),
+                response=response,
+                scope=scope
+            )
+        except Empty:
+            log.error(f'Cannot find mapper for auth_key {target}')
+            return make_response("KO", 403)
+        except (AttributeError, TypeError):
             from traceback import format_exc
             log.error(f"Failed to map auth data {format_exc()}")
         except NameError:
-            return redirect(self.context.auth_settings["auth"]["login_default_redirect_url"])
+            return redirect(self.settings["login_default_redirect_url"])
         return response
 
     def me(self):
@@ -151,20 +149,20 @@ class Module(module.ModuleModel):
         return flask.jsonify(get_auth_token())
 
     def token(self):
-        return redirect(self.context.auth_settings["auth"]["token_handler"], 302)
+        return redirect(self.settings["token_handler_url"], 302)
 
     def login(self):
-        return redirect(self.context.auth_settings["auth"]["login_handler"], 302)
+        return redirect(self.settings["login_handler_url"], 302)
 
     def logout(self):
         to = request.args.get("to")
         return redirect(
-            self.context.auth_settings["auth"]["logout_handler"] + (f"?to={to}" if to else ""))
+            self.settings["logout_handler_url"] + (f"?to={to}" if to else ""))
 
     def handle_auth(self, auth_header) -> Response:
         return check_auth(
             auth_header,
             rpc_manager=self.context.rpc_manager,
             rpc_prefix=self.rpc_prefix,
-            rpc_timeout=int(self.context.auth_settings['rpc_manager']['timeout'])
+            rpc_timeout=int(self.settings['rpc_manager']['timeout'])
         )

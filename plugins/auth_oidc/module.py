@@ -30,9 +30,9 @@ from pylon.core.tools import module  # pylint: disable=E0611,E0401
 
 from oic.oic.message import AuthorizationResponse
 
-from plugins.auth_oidc.utils.auth_handlers import basic, bearer
+from plugins.auth_oidc.auth_handlers.basic import BasicAuthHandler
+from plugins.auth_oidc.auth_handlers.bearer import BearerAuthHandler
 from plugins.auth_oidc.utils.oidc_client import create_oidc_client, clear_session
-from plugins.auth_root.utils.decorators import push_kwargs
 
 
 class Module(module.ModuleModel):
@@ -42,26 +42,34 @@ class Module(module.ModuleModel):
         self.settings = settings
         self.root_path = root_path
         self.context = context
+
         self.rpc_prefix = None
+        self.root_settings = None
 
     def init(self):
         """ Init module """
         log.info('Initializing module auth_oidc')
-        self.rpc_prefix = self.context.auth_settings['rpc_manager']['prefix']
+        _, _, root_module = self.context.module_manager.get_module("auth_root")
+        self.root_settings = root_module.settings
+        self.rpc_prefix = self.root_settings['rpc_manager']['prefix']['root']
 
-        self.context.rpc_manager.register_function(
-            push_kwargs(auth_settings=self.context.auth_settings)(basic),
-            name=f'{self.rpc_prefix}basic'
-        )
-        self.context.rpc_manager.register_function(
-            push_kwargs(auth_settings=self.context.auth_settings)(bearer),
-            name=f'{self.rpc_prefix}bearer'
-        )
+        auth_handlers = (BasicAuthHandler, BearerAuthHandler)
+        for auth_handler in auth_handlers:
+            handler = auth_handler(
+                issuer=self.settings['issuer'],
+                client_id=self.settings['registration']['client_id'],
+                client_secret=self.settings['registration']['client_secret']
+            )
+            self.context.rpc_manager.register_function(
+                func=handler.main,
+                name=f'{self.rpc_prefix}{handler.KEY_NAME}'
+            )
+            log.debug(f'Auth handler {str(auth_handler)} registered in rpc_manager under name {self.rpc_prefix}{handler.KEY_NAME}')
 
         bp = flask.Blueprint(
             'auth_oidc', 'plugins.auth_oidc',
             root_path=self.root_path,
-            url_prefix=f'{self.context.url_prefix}/{self.context.auth_settings["endpoints"]["oidc"]}/'
+            url_prefix=f'{self.context.url_prefix}/{self.settings["endpoints"]["root"]}/'
         )
         bp.add_url_rule('/login', 'login', self.login)
         bp.add_url_rule('/token', 'token', self.token)
@@ -91,8 +99,8 @@ class Module(module.ModuleModel):
 
     def get_client(self):
         return create_oidc_client(
-            self.context.auth_settings["oidc"]["issuer"],
-            self.context.auth_settings["oidc"]["registration"]
+            self.settings["issuer"],
+            self.settings["registration"]
         )
 
     def _auth_request(self, scope="openid", redirect_uri="/callback", response_type="code"):
@@ -118,7 +126,7 @@ class Module(module.ModuleModel):
             sformat="json"
         )
         if "state" not in session or auth_resp["state"] != session["state"]:
-            return redirect(self.context.auth_settings["endpoints"]["access_denied"], 302)
+            return redirect(self.root_settings["endpoints"]["access_denied"], 302)
         access_token_resp = client.do_access_token_request(
             state=auth_resp["state"],
             request_args={"code": auth_resp["code"]},
@@ -140,7 +148,7 @@ class Module(module.ModuleModel):
         session["auth_nameid"] = ""
         session["auth_sessionindex"] = ""
         #
-        if self.context.auth_settings["oidc"]["debug"]:
+        if self.settings["debug"]:
             log.warning("Callback redirect URL: %s", redirect_to)
         #
         return redirect(redirect_to, 302)
@@ -150,7 +158,7 @@ class Module(module.ModuleModel):
         for header in ("X-Forwarded-Proto", "X-Forwarded-Host", "X-Forwarded-Port"):
             if header not in session:
                 if "X-Forwarded-Uri" not in session:
-                    return self.context.auth_settings["auth"]["login_default_redirect_url"]
+                    return self.settings['login']["default_redirect_url"]
                 return session.pop("X-Forwarded-Uri")
         proto = session.pop("X-Forwarded-Proto")
         host = session.pop("X-Forwarded-Host")
@@ -163,15 +171,15 @@ class Module(module.ModuleModel):
         try:
             uri = session.pop("X-Forwarded-Uri")
         except KeyError:
-            print(f'NO X-Forwarded-Uri in session found, using {self.context.auth_settings["auth"]["login_default_redirect_url"]}')
-            uri = self.context.auth_settings["auth"]["login_default_redirect_url"]
+            uri = ''
+            log.warning(f'NO X-Forwarded-Uri in session found, redirecting to root')
         return f"{proto}://{host}{port}{uri}"
 
     def _do_logout(self, to: Optional[str] = None) -> str:
         if not to:
-            to = request.args.get('to', self.context.auth_settings["auth"]["login_handler"])
-        return_to = self.context.auth_settings["auth"]["logout_default_redirect_url"]
-        if to is not None and to in self.context.auth_settings["auth"]["logout_allowed_redirect_urls"]:
+            to = request.args.get('to', self.settings["login"]["handler_url"])
+        return_to = self.settings["logout"]["default_redirect_url"]
+        if to is not None and to in self.settings["logout"]["allowed_redirect_urls"]:
             return_to = to
         client = self.get_client()
         try:
@@ -183,7 +191,7 @@ class Module(module.ModuleModel):
             clear_session(session)
             return f"{client.end_session_endpoint}?redirect_uri={return_to}"
         logout_url = end_req.request(client.end_session_endpoint)
-        if self.context.auth_settings["oidc"]["debug"]:
+        if self.settings["debug"]:
             log.warning("Logout URL: %s", logout_url)
         clear_session(session)
         return logout_url

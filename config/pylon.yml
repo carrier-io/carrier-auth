@@ -56,3 +56,12 @@ storage:
 application:
   SECRET_KEY: "the_earth_is_flat"
 #   EXPLAIN_TEMPLATE_LOADING: true
+
+loki:
+  buffering: true
+  buffer_capacity: 113
+  include_node_name: true
+  include_level_name: true
+  include_logger_name: true
+  verify: true
+  url: loki:3100
