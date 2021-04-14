@@ -80,37 +80,3 @@ class GroupAPI(BaseResource):
             **kwargs
         )
         return make_response(response.dict(), response.status)
-
-
-class SubgroupAPI(BaseResource):
-    ...
-    # @staticmethod
-    # def _post_subgroup(url: str, token: Union[str, Token], body: GroupRepresentation, realm: str = '',
-    #                    response_debug_processor: Optional[Callable] = None) -> Response:
-    #     url = url.format(realm=realm)
-    #     headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
-    #     response = requests.post(url, headers=headers, json=body.dict(exclude_unset=True))
-    #     if not response_debug_processor:
-    #         response_debug_processor = lambda r: {
-    #             'status_code': r.status_code,
-    #             'updating_fields': body.dict(exclude_unset=True)
-    #         }
-    #     return api_response(response, debug_processor=response_debug_processor)
-    #
-    # @BaseResource.check_token
-    # def post(self, realm: str, group_id: str) -> Response:
-    #     url = f"{self.settings['keycloak_urls']['group']}/{group_id}/children"
-    #     try:
-    #         group = GroupRepresentation.parse_obj(request.json)
-    #     except ValidationError as e:
-    #         error = ApiResponseError()
-    #         error.message = str(e)
-    #         return api_data_response(error=error)
-    #     return self._post_subgroup(
-    #         url=url,
-    #         token=self.token,
-    #         realm=realm,
-    #         body=group
-    #     )
-
-
