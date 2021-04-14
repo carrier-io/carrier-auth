@@ -49,15 +49,6 @@ class Module(module.ModuleModel):
     def init(self):
         """ Init module """
         log.info('Initializing module auth_manager')
-        with self.context.app.app_context():
-            from flask import current_app
-            import json
-            x = current_app.config["CONTEXT"]
-            x = json.dumps(x.__dict__, indent=2, skipkeys=True, default=lambda o: str(o))
-            print(x)
-            print('######', current_app.config["CONTEXT"].auth_manager)
-            # for k, v in x.items():
-            #     print('$$$', k, '==', v)
         _, _, root_module = self.context.module_manager.get_module("auth_root")
         root_settings = root_module.settings
 
