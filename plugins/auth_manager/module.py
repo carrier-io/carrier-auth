@@ -16,6 +16,7 @@
 #   limitations under the License.
 
 """ Module """
+
 import flask  # pylint: disable=E0401
 from flask import session, make_response, request
 
@@ -153,7 +154,4 @@ class Module(module.ModuleModel):
                 del session[k]
             except KeyError:
                 ...
-        # return redirect(
-        #     f'http://{self.context.app.config["SERVER_NAME"]}{self.context.auth_settings["endpoints"]["root"]}/'
-        # )
         return make_response(None, 204)
