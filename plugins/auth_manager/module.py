@@ -16,15 +16,11 @@
 #   limitations under the License.
 
 """ Module """
-import os
-
 import flask  # pylint: disable=E0401
-import yaml
 from flask import session, make_response, request
 
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
-from pylon.core.tools.config import config_substitution, vault_secrets
 
 from plugins.auth_manager.api.base import BaseResource
 from plugins.auth_manager.api.group import GroupAPI

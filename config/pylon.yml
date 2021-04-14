@@ -9,7 +9,7 @@ server:
 # Local paths to modules and config
 development:
   modules: plugins
-  config: /app/config
+  config: config
 
 # Session storage
 sessions:

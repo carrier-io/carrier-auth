@@ -17,12 +17,10 @@
 
 """ Module """
 import json
-import os
 from typing import Optional
 
 import flask  # pylint: disable=E0401
 import jinja2  # pylint: disable=E0401
-import yaml
 from flask import redirect, request, session
 from oic import rndstr
 from oic.oauth2 import GrantError
@@ -31,12 +29,10 @@ from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
 
 from oic.oic.message import AuthorizationResponse
-from pylon.core.tools.config import config_substitution, vault_secrets
 
 from plugins.auth_oidc.auth_handlers.basic import BasicAuthHandler
 from plugins.auth_oidc.auth_handlers.bearer import BearerAuthHandler
 from plugins.auth_oidc.utils.oidc_client import create_oidc_client, clear_session
-from plugins.auth_root.utils.decorators import push_kwargs
 
 
 class Module(module.ModuleModel):
