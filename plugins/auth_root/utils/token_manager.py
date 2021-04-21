@@ -11,7 +11,7 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
+import binascii
 import hashlib
 from queue import Empty
 from typing import Optional, Iterable
@@ -61,5 +61,8 @@ def check_auth(auth_header: str, *, rpc_prefix: str, rpc_timeout: int, rpc_manag
     except Empty:
         log.error(f'Cannot find handler for auth_key {auth_key.lower()}')
         return make_response("KO", 401)
+    except binascii.Error:
+        log.error('Incorrect auth data received')
+        return make_response('KO', 403)
     return make_response(*auth_result)
 
