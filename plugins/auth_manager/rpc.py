@@ -87,14 +87,10 @@ def get_groups(
             )
             if group_data.success:
                 members_data = KeyCloakAPI.get_group_members(group_url=url, token=token)
-                if isinstance(group_data.data, GroupRepresentation):
-                    group_data.data.members = members_data.data
+                if isinstance(group_data.data, dict):
+                    group_data.data['members'] = members_data.data
                 else:
-                    try:
-                        group_data.data['members'] = members_data.data
-                    except TypeError:
-                        from pylon.core.tools import log
-                        log.debug(f'Unable to insert members data for group response data type {type(group_data.data)}')
+                    group_data.data.members = members_data.data
             return group_data
     elif search:
         search_kwarg['search'] = search
