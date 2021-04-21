@@ -13,14 +13,14 @@
 #     limitations under the License.
 
 
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 
 from pydantic.main import BaseModel
 
 
 class GroupRepresentation(BaseModel):
     access: Optional[dict]
-    attributes: Optional[dict]
+    attributes: Optional[Dict[str, List[str]]]
     clientRoles: Optional[dict]
     id: Optional[str]
     name: Optional[str]
