@@ -50,7 +50,7 @@ def api_response(
         response_data_type: Union[Callable, BaseModel, List, None] = None,
         response_debug_processor: Optional[Callable] = None
 ) -> ApiResponse:
-    resp = ApiResponse()
+    resp = ApiResponse(headers=response.headers)
     data = resp.get_data_from_response(response)
     resp.debug = resp.get_debug_data(response, response_debug_processor)
 

@@ -18,6 +18,7 @@ from typing import Any, Optional, Callable, Union, List
 
 from pydantic import BaseModel, ValidationError, parse_obj_as
 from requests import Response
+from requests.structures import CaseInsensitiveDict
 
 
 class ApiResponseError(BaseModel):
@@ -31,6 +32,7 @@ class ApiResponse(BaseModel):
     error: Optional[ApiResponseError] = ApiResponseError()
     data: Any = {}
     debug: Any = {}
+    headers: Union[dict, CaseInsensitiveDict] = {}
 
     @classmethod
     def failed(cls, status_code: int = 400, error_message: Any = None):
