@@ -13,21 +13,21 @@
 #     limitations under the License.
 
 
-from typing import Optional, Union, Callable, List
+from typing import Optional, Union, List
 
-from plugins.auth_manager.models.api_response_pd import ApiResponse, is_subclass_of_base_model
+from plugins.auth_manager.models.api_response_pd import ApiResponse, is_subclass_of_base_model, DebugProcessorType
 from plugins.auth_manager.models.group_pd import GroupRepresentation
 from plugins.auth_manager.models.token_pd import Token
 from plugins.auth_manager.models.user_pd import UserRepresentation
 from plugins.auth_manager.utils.keycloak_api import KeyCloakAPI
-from plugins.auth_manager.utils.tools import get_id
+from plugins.auth_manager.utils.tools import get_id, get_id_from_headers
 
 
 # rpc_name: auth_manager_get_user
 def get_users(
         *, base_url: str, realm: str, token: Token,
         user_or_id: Optional[Union[str, UserRepresentation]] = None,
-        response_debug_processor: Optional[Callable] = None,
+        response_debug_processor: DebugProcessorType = None,
         with_groups: bool = True,
         **kwargs
 ) -> ApiResponse:
@@ -66,7 +66,7 @@ def get_groups(
         *, base_url: str, realm: str, token: Token,
         group_or_id: Optional[Union[str, GroupRepresentation]] = None,
         search: Optional[str] = None,
-        response_debug_processor: Optional[Callable] = None,
+        response_debug_processor: DebugProcessorType = None,
         with_members: bool = True
 ) -> ApiResponse:
     search_kwarg = dict()
@@ -104,7 +104,7 @@ def get_groups(
 # rpc_name: auth_manager_put_entity
 def put_entity(
         *, base_url: str, realm: str, token: Token, entity: Union[UserRepresentation, GroupRepresentation],
-        response_debug_processor: Optional[Callable] = None,
+        response_debug_processor: DebugProcessorType = None,
 
 ) -> ApiResponse:
     entity_id = get_id(entity)
@@ -121,15 +121,26 @@ def put_entity(
 # rpc_name: auth_manager_post_user
 def post_entity(
         *, base_url: str, realm: str, token: Token, entity: Union[UserRepresentation, GroupRepresentation],
-        response_debug_processor: Optional[Callable] = None
+        response_debug_processor: DebugProcessorType = None
 ) -> ApiResponse:
     url = base_url.format(realm=realm)
-    return KeyCloakAPI.post(
+    api_response = KeyCloakAPI.post(
         url=url,
         token=token,
         body=entity,
         response_debug_processor=response_debug_processor
     )
+    if api_response.success and api_response.headers and 'Location' in api_response.headers:
+        created_entity_id = get_id_from_headers(
+            location_header_value=api_response.headers.get('Location', '')
+        )
+        if isinstance(api_response.data, dict):
+            api_response.data['id'] = created_entity_id
+        if not api_response.data:
+            entity.id = created_entity_id
+            api_response.data = entity
+    return api_response
+
 
 
 # rpc_name: auth_manager_post_group
@@ -145,7 +156,7 @@ def post_group(
 # rpc_name: auth_manager_delete_entity
 def delete_entity(
         *, base_url: str, realm: str, token: Token, entity_or_id: Union[UserRepresentation, GroupRepresentation, str],
-        response_debug_processor: Optional[Callable] = None
+        response_debug_processor: DebugProcessorType = None
 ) -> ApiResponse:
     entity_id = get_id(entity_or_id)
 
@@ -163,7 +174,7 @@ def delete_entity(
 def add_users_to_groups(
         *, user_url: str, realm: str, token: Token,
         users: List[Union[UserRepresentation, str]], groups: List[Union[GroupRepresentation, str]],
-        response_debug_processor: Optional[Callable] = None,
+        response_debug_processor: DebugProcessorType = None,
 ) -> ApiResponse:
     url = user_url.format(realm=realm)
     resp = ApiResponse()
@@ -199,7 +210,7 @@ def add_users_to_groups(
 def expel_users_from_groups(
         *, user_url: str, realm: str, token: Token,
         users: List[Union[UserRepresentation, str]], groups: List[Union[GroupRepresentation, str]],
-        response_debug_processor: Optional[Callable] = None,
+        response_debug_processor: DebugProcessorType = None,
 ) -> ApiResponse:
     url = user_url.format(realm=realm)
     resp = ApiResponse()

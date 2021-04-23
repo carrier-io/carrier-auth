@@ -20,7 +20,7 @@ from flask_restful import Api, Resource
 from pydantic import BaseModel
 from requests import Response
 
-from plugins.auth_manager.models.api_response_pd import ApiResponse, is_subclass_of_base_model
+from plugins.auth_manager.models.api_response_pd import ApiResponse, is_subclass_of_base_model, DebugProcessorType
 from plugins.auth_manager.models.token_pd import AuthCreds, Token, RefreshCreds
 from plugins.auth_manager.utils.exceptions import TokenRefreshError, IdExtractError
 
@@ -48,7 +48,7 @@ def refresh_token(url: str, creds: RefreshCreds) -> Token:
 def api_response(
         response: Response,
         response_data_type: Union[Callable, BaseModel, List, None] = None,
-        response_debug_processor: Optional[Callable] = None
+        response_debug_processor: DebugProcessorType = None
 ) -> ApiResponse:
     resp = ApiResponse(headers=response.headers)
     data = resp.get_data_from_response(response)
@@ -100,3 +100,7 @@ def get_id(obj: Any, possible_id_attribute_name='id', raise_on_error=True):
     if raise_on_error:
         raise IdExtractError(obj, possible_id_attribute_name)
     return None
+
+
+def get_id_from_headers(location_header_value: str):
+    return location_header_value.rsplit('/', maxsplit=1)[-1]

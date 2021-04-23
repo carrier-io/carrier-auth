@@ -19,6 +19,8 @@ from typing import Any, Optional, Callable, Union, List
 from pydantic import BaseModel, ValidationError, parse_obj_as
 from requests import Response
 
+DebugProcessorType = Optional[Callable[[Response], Any]]
+
 
 class ApiResponseError(BaseModel):
     message: Any = None
@@ -43,7 +45,7 @@ class ApiResponse(BaseModel):
         return klass
 
     @staticmethod
-    def get_debug_data(response: Response, response_debug_processor: Optional[Callable] = None) -> dict:
+    def get_debug_data(response: Response, response_debug_processor: DebugProcessorType = None) -> dict:
         if response_debug_processor:
             try:
                 debug_data = response_debug_processor(response)
@@ -60,7 +62,9 @@ class ApiResponse(BaseModel):
         try:
             return response.json()
         except JSONDecodeError:
-            return response.text
+            if response.text:
+                return response.text
+            return
 
     @staticmethod
     def format_response_data(data: Any, response_data_type: Union[Callable, BaseModel, List]):
