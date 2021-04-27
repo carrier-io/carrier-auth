@@ -18,7 +18,7 @@ from typing import Union, Optional, Callable
 import requests
 from pydantic import BaseModel
 
-from plugins.auth_manager.models.api_response_pd import ApiResponse
+from plugins.auth_manager.models.api_response_pd import ApiResponse, DebugProcessorType
 from plugins.auth_manager.models.group_pd import GroupRepresentation
 from plugins.auth_manager.models.token_pd import Token
 from plugins.auth_manager.models.user_pd import UserRepresentation
@@ -31,7 +31,7 @@ class KeyCloakAPI:
             url: str,
             token: Union[str, Token],
             response_data_type: Union[Callable, BaseModel] = None,
-            response_debug_processor: Optional[Callable] = None,
+            response_debug_processor: DebugProcessorType = None,
             **kwargs
     ) -> ApiResponse:
         headers = {'Authorization': str(token)}
@@ -44,7 +44,7 @@ class KeyCloakAPI:
             url: str,
             token: Union[str, Token],
             body: Union[UserRepresentation, GroupRepresentation],
-            response_debug_processor: Optional[Callable] = None
+            response_debug_processor: DebugProcessorType = None
     ) -> ApiResponse:
         headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
         response = requests.put(url, headers=headers, json=body.dict(exclude_unset=True))
@@ -55,17 +55,18 @@ class KeyCloakAPI:
             url: str,
             token: Union[str, Token],
             body: UserRepresentation,
-            response_debug_processor: Optional[Callable] = None
+            response_debug_processor: DebugProcessorType = None
     ) -> ApiResponse:
         headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
         response = requests.post(url, headers=headers, json=body.dict(exclude_unset=True))
+        print('SOME POST RESP HEADERS', response.headers)
         return api_response(response, response_debug_processor=response_debug_processor)
 
     @staticmethod
     def delete(
             url: str,
             token: Union[str, Token],
-            response_debug_processor: Optional[Callable] = None
+            response_debug_processor: DebugProcessorType = None
     ) -> ApiResponse:
         headers = {'Authorization': str(token)}
         response = requests.delete(url, headers=headers)
@@ -75,7 +76,7 @@ class KeyCloakAPI:
     def get_user_groups(
             user_url: str,
             token: Union[str, Token],
-            response_debug_processor: Optional[Callable] = None
+            response_debug_processor: DebugProcessorType = None
     ) -> ApiResponse:
         groups_url = f'{user_url.rstrip("/")}/groups'
         return KeyCloakAPI.get(
@@ -89,7 +90,7 @@ class KeyCloakAPI:
     def get_group_members(
             group_url: str,
             token: Union[str, Token],
-            response_debug_processor: Optional[Callable] = None
+            response_debug_processor: DebugProcessorType = None
     ) -> ApiResponse:
         members_url = f'{group_url.rstrip("/")}/members'
         return KeyCloakAPI.get(
@@ -105,7 +106,7 @@ class KeyCloakAPI:
             token: Union[str, Token],
             user: Union[UserRepresentation, str],
             group: Union[GroupRepresentation, str],
-            response_debug_processor: Optional[Callable] = None
+            response_debug_processor: DebugProcessorType = None
     ) -> ApiResponse:
         user_id = get_id(user)
         group_id = get_id(group)
@@ -120,7 +121,7 @@ class KeyCloakAPI:
             token: Union[str, Token],
             user: Union[UserRepresentation, str],
             group: Union[GroupRepresentation, str],
-            response_debug_processor: Optional[Callable] = None
+            response_debug_processor: DebugProcessorType = None
     ) -> ApiResponse:
         user_id = get_id(user)
         group_id = get_id(group)

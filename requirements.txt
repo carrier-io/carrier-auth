@@ -2,4 +2,5 @@ PyYAML==5.3.1
 oic==1.2.0
 jsonpath-rw==1.4.0
 pydantic==1.8.1
+requests
 pylon @ git+https://github.com/carrier-io/pylon.git@main
