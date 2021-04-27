@@ -23,6 +23,9 @@ from plugins.auth_manager.utils.keycloak_api import KeyCloakAPI
 from plugins.auth_manager.utils.tools import get_id
 
 
+# !!!base_url is included in rpc, but can be overridden!!!
+
+
 # rpc_name: auth_manager_get_user
 def get_users(
         *, base_url: str, realm: str, token: Token,
@@ -84,9 +87,10 @@ def get_groups(
             )
             if group_data.success:
                 members_data = KeyCloakAPI.get_group_members(group_url=url, token=token)
-                if is_subclass_of_base_model(members_data.data):
+                if isinstance(group_data.data, dict):
+                    group_data.data['members'] = members_data.data
+                else:
                     group_data.data.members = members_data.data
-                members_data.data['members'] = members_data.data
             return group_data
     elif search:
         search_kwarg['search'] = search
