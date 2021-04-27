@@ -13,7 +13,7 @@
 #     limitations under the License.
 
 
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 
 from pydantic import BaseModel
 
@@ -57,7 +57,7 @@ class FederatedIdentityRepresentation(BaseModel):
 
 class UserRepresentation(BaseModel):
     access: Optional[dict]
-    attributes: Optional[dict]
+    attributes: Optional[Dict[str, List[str]]]
     clientConsents: Optional[List[UserConsentRepresentation]]
     clientRoles: Optional[dict]
     createdTimestamp: Optional[int]
