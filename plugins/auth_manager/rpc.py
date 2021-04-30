@@ -76,7 +76,7 @@ def get_groups(
     url = base_url.format(realm=realm)
     group_id = get_id(group_or_id, raise_on_error=False)
     if group_id:
-        url = f'{url}/{group_id}'
+        url = f'{url.rstrip("/")}/{group_id}'
         if with_members:
             group_data = KeyCloakAPI.get(
                 url=url,
@@ -165,7 +165,7 @@ def delete_entity(
     entity_id = get_id(entity_or_id)
 
     url = base_url.format(realm=realm)
-    url = f'{url}/{entity_id}'
+    url = f'{url.rstrip("/")}/{entity_id}'
 
     return KeyCloakAPI.delete(
         url=url,
@@ -244,3 +244,19 @@ def expel_users_from_groups(
             if result.debug:
                 resp.debug.append(result.debug)
     return resp
+
+
+# rpc_name: auth_manager_add_subgroup
+def add_subgroup(
+        *, group_url: str, realm: str, token: Token,
+        parent: Union[GroupRepresentation, str], child: Union[GroupRepresentation, str],
+        response_debug_processor: DebugProcessorType = None
+):
+    parent_id = get_id(parent)
+    url = f'{group_url.rstrip("/")}/{parent_id}/children'
+    if isinstance(child, str):
+        child = GroupRepresentation(name=child)
+    return post_entity(
+        base_url=url, realm=realm, token=token,
+        entity=child, response_debug_processor=response_debug_processor
+    )

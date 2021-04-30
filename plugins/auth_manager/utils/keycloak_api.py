@@ -54,12 +54,11 @@ class KeyCloakAPI:
     def post(
             url: str,
             token: Union[str, Token],
-            body: UserRepresentation,
+            body: Union[UserRepresentation, GroupRepresentation],
             response_debug_processor: DebugProcessorType = None
     ) -> ApiResponse:
         headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
         response = requests.post(url, headers=headers, json=body.dict(exclude_unset=True))
-        print('SOME POST RESP HEADERS', response.headers)
         return api_response(response, response_debug_processor=response_debug_processor)
 
     @staticmethod
@@ -128,4 +127,18 @@ class KeyCloakAPI:
         url = f'{user_url.rstrip("/")}/{user_id}/groups/{group_id}'
         headers = {'Authorization': str(token)}
         response = requests.delete(url, headers=headers)
+        return api_response(response, response_debug_processor=response_debug_processor)
+
+    @staticmethod
+    def add_subgroup_to_group(
+            group_url: str,
+            token: Union[str, Token],
+            parent: Union[GroupRepresentation, str],
+            child: GroupRepresentation,
+            response_debug_processor: DebugProcessorType = None
+    ) -> ApiResponse:
+        parent_id = get_id(parent)
+        url = f'{group_url.rstrip("/")}/{parent_id}/children'
+        headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
+        response = requests.post(url, headers=headers, json=child.dict(exclude_unset=True))
         return api_response(response, response_debug_processor=response_debug_processor)
