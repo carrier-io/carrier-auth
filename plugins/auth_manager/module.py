@@ -26,10 +26,11 @@ from pylon.core.tools import module  # pylint: disable=E0611,E0401
 from plugins.auth_manager.api.base import BaseResource
 from plugins.auth_manager.api.group import GroupAPI
 from plugins.auth_manager.api.membership import MembershipAPI
+from plugins.auth_manager.api.subgroup import SubgroupAPI
 from plugins.auth_manager.api.user import UserAPI
 from plugins.auth_manager.models.token_pd import AuthCreds
 from plugins.auth_manager.rpc import get_users, get_groups, put_entity, post_entity, post_group, delete_entity, \
-    add_users_to_groups, expel_users_from_groups
+    add_users_to_groups, expel_users_from_groups, add_subgroup
 from plugins.auth_manager.utils.tools import add_resource_to_api, get_token
 from plugins.auth_root.utils.decorators import push_kwargs
 
@@ -70,6 +71,10 @@ class Module(module.ModuleModel):
         add_resource_to_api(self.context.api, MembershipAPI,
                             f'/membership/<string:realm>',
                             methods=['PUT', 'POST']
+                            )
+        add_resource_to_api(self.context.api, SubgroupAPI,
+                            f'/subgroup/<string:realm>',
+                            methods=['POST']
                             )
 
         # rpc_manager
@@ -131,6 +136,11 @@ class Module(module.ModuleModel):
             name=f'{self.rpc_prefix}expel_users_from_groups'
         )
 
+        # subgroup functions
+        self.context.rpc_manager.register_function(
+            push_kwargs(base_url=self.settings['keycloak_urls']['group'])(add_subgroup),
+            name=f'{self.rpc_prefix}add_subgroup'
+        )
 
         # blueprint endpoints
         bp = flask.Blueprint(

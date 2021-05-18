@@ -29,11 +29,13 @@ def push_kwargs(**pushed_kwargs):
     def decor(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if any(i in kwargs for i in pushed_kwargs):
+            intersections = set(kwargs.keys()).intersection(set(pushed_kwargs.keys()))
+            # if any(i in kwargs for i in pushed_kwargs):
+            if intersections:
                 log.warning(
-                    f'pushed kwargs {pushed_kwargs} intersect with explicit kwargs {kwargs} '
+                    f'some pushed kwargs {intersections} intersect with explicit kwargs '
                     f'for func [{func.__module__}.{func.__name__}]. '
-                    f'Using explicit {kwargs} by default'
+                    f'Using explicit by default'
                 )
             pushed_kwargs.update(kwargs)
             return func(*args, **pushed_kwargs)
