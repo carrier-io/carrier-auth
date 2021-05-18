@@ -20,8 +20,7 @@ from plugins.auth_manager.models.group_pd import GroupRepresentation
 from plugins.auth_manager.models.token_pd import Token
 from plugins.auth_manager.models.user_pd import UserRepresentation
 from plugins.auth_manager.utils.keycloak_api import KeyCloakAPI
-from plugins.auth_manager.utils.tools import get_id, get_id_from_headers
-
+from plugins.auth_manager.utils.tools import get_id, get_id_from_headers, api_data_response
 
 # !!!base_url is included in rpc, but can be overridden!!!
 
@@ -76,7 +75,7 @@ def get_groups(
     url = base_url.format(realm=realm)
     group_id = get_id(group_or_id, raise_on_error=False)
     if group_id:
-        url = f'{url}/{group_id}'
+        url = f'{url.rstrip("/")}/{group_id}'
         if with_members:
             group_data = KeyCloakAPI.get(
                 url=url,
@@ -140,6 +139,7 @@ def post_entity(
         )
         if isinstance(api_response.data, dict):
             api_response.data['id'] = created_entity_id
+            api_response = api_data_response(data=api_response, response_data_type=type(entity))
         if not api_response.data:
             entity.id = created_entity_id
             api_response.data = entity
@@ -165,7 +165,7 @@ def delete_entity(
     entity_id = get_id(entity_or_id)
 
     url = base_url.format(realm=realm)
-    url = f'{url}/{entity_id}'
+    url = f'{url.rstrip("/")}/{entity_id}'
 
     return KeyCloakAPI.delete(
         url=url,
@@ -244,3 +244,19 @@ def expel_users_from_groups(
             if result.debug:
                 resp.debug.append(result.debug)
     return resp
+
+
+# rpc_name: auth_manager_add_subgroup
+def add_subgroup(
+        *, group_url: str, realm: str, token: Token,
+        parent: Union[GroupRepresentation, str], child: Union[GroupRepresentation, str],
+        response_debug_processor: DebugProcessorType = None
+):
+    parent_id = get_id(parent)
+    url = f'{group_url.rstrip("/")}/{parent_id}/children'
+    if isinstance(child, str):
+        child = GroupRepresentation(name=child)
+    return post_entity(
+        base_url=url, realm=realm, token=token,
+        entity=child, response_debug_processor=response_debug_processor
+    )
