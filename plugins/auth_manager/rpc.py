@@ -20,7 +20,7 @@ from plugins.auth_manager.models.group_pd import GroupRepresentation
 from plugins.auth_manager.models.token_pd import Token
 from plugins.auth_manager.models.user_pd import UserRepresentation
 from plugins.auth_manager.utils.keycloak_api import KeyCloakAPI
-from plugins.auth_manager.utils.tools import get_id, get_id_from_headers
+from plugins.auth_manager.utils.tools import get_id, get_id_from_headers, api_data_response
 
 
 # !!!base_url is included in rpc, but can be overridden!!!
@@ -140,6 +140,7 @@ def post_entity(
         )
         if isinstance(api_response.data, dict):
             api_response.data['id'] = created_entity_id
+            api_response = api_data_response(data=api_response, response_data_type=type(entity))
         if not api_response.data:
             entity.id = created_entity_id
             api_response.data = entity
