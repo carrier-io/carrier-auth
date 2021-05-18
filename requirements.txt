@@ -1,4 +1,4 @@
-PyYAML
+PyYAML==5.4
 oic==1.2.1
 jsonpath-rw==1.4.0
 pydantic==1.8.1
