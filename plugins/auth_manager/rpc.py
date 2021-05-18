@@ -22,10 +22,6 @@ from plugins.auth_manager.models.user_pd import UserRepresentation
 from plugins.auth_manager.utils.keycloak_api import KeyCloakAPI
 from plugins.auth_manager.utils.tools import get_id, get_id_from_headers, api_data_response
 
-
-# !!!base_url is included in rpc, but can be overridden!!!
-
-
 # !!!base_url is included in rpc, but can be overridden!!!
 
 

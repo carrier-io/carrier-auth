@@ -59,6 +59,7 @@ class KeyCloakAPI:
     ) -> ApiResponse:
         headers = {'Authorization': str(token), 'Content-Type': 'application/json'}
         response = requests.post(url, headers=headers, json=body.dict(exclude_unset=True))
+        print('SOME POST RESP HEADERS', response.headers)
         return api_response(response, response_debug_processor=response_debug_processor)
 
     @staticmethod
