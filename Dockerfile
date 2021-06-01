@@ -8,6 +8,7 @@ RUN apk add --update --no-cache \
   libressl \
   libressl-dev
 
+ENV CRYPTOGRAPHY_DONT_BUILD_RUST=1
 ENV PYTHONUNBUFFERED 1
 RUN pip3 install --upgrade pip
 RUN pip3 install --upgrade setuptools
